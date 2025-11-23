@@ -1,24 +1,47 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { ThemedText } from "@/components/ThemedText";
+import { useThemeColors } from "@/hooks/useThemeColors";
+import { Stack } from "expo-router";
+import { View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import "../global.css";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+// ✅ Google Font import
+import { AuthProvider } from "@/context/AuthContext";
+import {
+  Pacifico_400Regular,
+  useFonts,
+} from "@expo-google-fonts/pacifico";
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+   const [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+  });
+
+  const {} = useThemeColors();
+
+   if (!fontsLoaded) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ThemedText>Loading...</ThemedText>
+      </View>
+    );
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <View style={{ flex: 1}}>
+          <Stack
+            screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "transparent" }, 
+        }}
+           
+          />
+        </View>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

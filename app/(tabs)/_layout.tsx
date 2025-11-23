@@ -1,33 +1,99 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+"use client";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from "@/context/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Tabs, useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { ActivityIndicator } from "react-native";
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function TabsLayout() {
+  const router = useRouter();
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
+
+  // ✅ Redirect if not logged in
+  useEffect(() => {
+    if (!isAuthLoading) {
+      if (!isAuthenticated || !user) {
+        router.replace("/(auth)/auth");
+      }
+    }
+  }, [isAuthLoading, isAuthenticated, user]);
+
+  // ✅ Loading state
+  if (isAuthLoading) {
+    return (
+      <LinearGradient
+        colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
+        start={{ x: 1, y: 3 }}
+        end={{ x: 0, y: 0 }}
+        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+      >
+        <ActivityIndicator size="large" color="#ff9d76" />
+      </LinearGradient>
+    );
+  }
+
+  // ✅ Prevent rendering Tabs before auth is checked
+  if (!isAuthenticated || !user) return null;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: "#db2777",
+        tabBarInactiveTintColor: "#000000",
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: "#480048",
+          elevation: 0,
+          shadowOpacity: 0,
+          backgroundColor: "transparent",
+        },
+        tabBarBackground: () => (
+          <LinearGradient
+            colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
+            start={{ x: 1, y: 3 }}
+            end={{ x: 0, y: 0 }}
+            style={{ flex: 1 }}
+          />
+        ),
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="earth-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="request"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Request",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: "Wallet",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wallet-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: "Account",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
