@@ -1,16 +1,16 @@
-import React, { useState } from "react";
-import {
-  View,
-  FlatList,
-  TouchableOpacity,
-  Animated,
-  Easing,
-} from "react-native";
+import GradientBackground from "@/components/Gradientbackground";
+import { ThemedText } from "@/components/ThemedText";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { ThemedText } from "@/components/ThemedText";
-import GradientBackground from "@/components/Gradientbackground";
+import React, { useState } from "react";
+import {
+  Animated,
+  Easing,
+  FlatList,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const initialNotifications = [
   {

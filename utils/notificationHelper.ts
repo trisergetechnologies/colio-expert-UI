@@ -1,3 +1,4 @@
+// src/utils/notificationHelper.ts (Consultant App)
 import { getToken } from "@/utils/tokenHelper";
 import axios from "axios";
 import * as Device from "expo-device";
@@ -17,7 +18,7 @@ Notifications.setNotificationHandler({
 
 export async function registerForPushNotificationsAsync() {
   if (!Device.isDevice) {
-    console.warn("Must use physical device for push notifications");
+    console.warn("[Consultant] Must use physical device for push notifications");
     return null;
   }
 
@@ -30,12 +31,15 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (finalStatus !== "granted") {
-    console.warn("Push notification permission not granted");
+    console.warn("[Consultant] Push notification permission not granted");
     return null;
   }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync();
+  const tokenData = await Notifications.getExpoPushTokenAsync({
+    projectId: "da2b77e7-8db9-48d7-afb4-7a00b358a5d9"
+  });
   const expoPushToken = tokenData.data;
+
+  console.log("[Consultant] Expo push token:", expoPushToken);
 
   try {
     const jwt = await getToken();
@@ -45,9 +49,10 @@ export async function registerForPushNotificationsAsync() {
         { pushToken: expoPushToken },
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
+      console.log("[Consultant] Push token registered with backend");
     }
   } catch (err) {
-    console.error("Failed to register push token:", err);
+    console.error("[Consultant] Failed to register push token:", err);
   }
 
   return expoPushToken;
