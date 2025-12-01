@@ -1,4 +1,4 @@
-// app/call.tsx (Consultant App)
+// app/call.tsx (Consultant App - Lite Version)
 import { useCallContext } from "@/context/CallContext";
 import { useIncomingCallPolling } from "@/hooks/useIncomingCallPolling";
 import { clearEngine } from "@/utils/rnAgora";
@@ -7,113 +7,149 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Dimensions,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { RtcSurfaceView } from 'react-native-agora';
 
 const API_BASE_URL = "https://api.colio.in/api";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ConsultantCallScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [isMuted, setIsMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [remoteUid, setRemoteUid] = useState<number>(0);
   const [duration, setDuration] = useState(0);
   const [isCustomerConnected, setIsCustomerConnected] = useState(false);
+  
   const engineRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
+  const hasCleanedUpRef = useRef(false);
   
   const { endCall } = useCallContext();
   const { resetPolling } = useIncomingCallPolling();
 
+  const callType = params.callType as string;
+
   useEffect(() => {
-    // ✅ Get engine from global
+    console.log('[Consultant] 📱 Call screen mounted');
+    StatusBar.setHidden(true);
+    
     engineRef.current = (global as any).consultantEngine;
     
-    if (engineRef.current) {
-      setupEventListeners();
+    if (!engineRef.current) {
+      console.error('[Consultant] ❌ No engine found!');
+      Alert.alert('Error', 'Call engine not found');
+      router.back();
+      return;
     }
     
-    // Start timer
+    console.log('[Consultant] ✅ Engine retrieved');
+    setupEventListeners();
+    
+    if (callType === 'video') {
+      setIsVideoEnabled(true);
+    }
+    
     timerRef.current = setInterval(() => {
       setDuration(prev => prev + 1);
     }, 1000);
 
     return () => {
+      console.log('[Consultant] 📱 Unmounting');
+      StatusBar.setHidden(false);
+      
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      cleanup();
+      
+      if (!hasCleanedUpRef.current) {
+        cleanup();
+      }
     };
   }, []);
 
   const setupEventListeners = () => {
     if (!engineRef.current) return;
 
-    console.log('[Consultant] Setting up call screen event listeners');
-
-    // Note: Listeners already set in incoming-call screen
-    // Just update states based on existing listeners
+    console.log('[Consultant] Setting up listeners');
     
-    // Add additional listener for this screen
     engineRef.current.registerEventHandler({
-      onUserJoined: (connection: any, remoteUid: number) => {
-        console.log('[Consultant] Customer connected in call screen');
+      onUserJoined: (connection: any, uid: number) => {
+        console.log('[Consultant] 👤 Customer joined! UID:', uid);
+        setRemoteUid(uid);
         setIsCustomerConnected(true);
       },
       
-      onUserOffline: (connection: any, remoteUid: number, reason: number) => {
-        console.log('[Consultant] Customer disconnected in call screen');
+      onUserOffline: (connection: any, uid: number, reason: number) => {
+        console.log('[Consultant] 👋 Customer left');
+        setRemoteUid(0);
         setIsCustomerConnected(false);
         
-        Alert.alert('Call Ended', 'The customer has left the call', [
-          { text: 'OK', onPress: () => handleEndCall() }
-        ]);
+        setTimeout(() => {
+          Alert.alert('Call Ended', 'Customer left the call', [
+            { text: 'OK', onPress: () => handleEndCall() }
+          ]);
+        }, 500);
       },
     });
   };
 
-const cleanup = async () => {
-  try {
-    if (engineRef.current) {
-      console.log('[Consultant] Cleaning up engine...');
-      
-      try {
-        await engineRef.current.leaveChannel();
-        console.log('[Consultant] Left channel');
-      } catch (e) {
-        console.warn('[Consultant] Leave error:', e);
-      }
-      
-      try {
-        await engineRef.current.release();
-        console.log('[Consultant] Engine released');
-      } catch (e) {
-        console.warn('[Consultant] Release error:', e);
-      }
-      
-      // Clear references
-      (global as any).consultantEngine = null;
-      engineRef.current = null;
-      
-      // ✅ CRITICAL: Clear the global engine instance
-      clearEngine();
-      console.log('[Consultant] Engine instance cleared from global');
-    }
-  } catch (error) {
-    console.error('[Consultant] Cleanup error:', error);
-  }
-};
-
-  const toggleMute = async () => {
+  const cleanup = async () => {
+    if (hasCleanedUpRef.current) return;
+    hasCleanedUpRef.current = true;
+    
     try {
-      if (!engineRef.current) return;
-      await engineRef.current.muteLocalAudioStream(!isMuted);
-      setIsMuted(!isMuted);
-      console.log('[Consultant] Mute toggled:', !isMuted);
+      if (engineRef.current) {
+        console.log('[Consultant] Cleaning up...');
+        
+        try {
+          await engineRef.current.leaveChannel();
+        } catch (e) {}
+        
+        try {
+          await engineRef.current.release();
+        } catch (e) {}
+        
+        (global as any).consultantEngine = null;
+        engineRef.current = null;
+        clearEngine();
+      }
     } catch (error) {
-      console.error('[Consultant] Mute toggle error:', error);
+      console.error('[Consultant] Cleanup error:', error);
     }
   };
 
+  const toggleMute = async () => {
+    if (!engineRef.current) return;
+    await engineRef.current.muteLocalAudioStream(!isMuted);
+    setIsMuted(!isMuted);
+  };
+
+  const toggleVideo = async () => {
+    if (!engineRef.current || callType !== 'video') return;
+    const newState = !isVideoEnabled;
+    await engineRef.current.enableLocalVideo(newState);
+    setIsVideoEnabled(newState);
+  };
+
+  const switchCamera = async () => {
+    if (!engineRef.current || callType !== 'video') return;
+    await engineRef.current.switchCamera();
+  };
+
   const handleEndCall = async () => {
+    if (hasCleanedUpRef.current) return;
+    
     try {
       console.log('[Consultant] Ending call...');
       const jwt = await getToken();
@@ -123,14 +159,16 @@ const cleanup = async () => {
         { sessionId: params.sessionId },
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
-      
-      console.log('[Consultant] Call ended on backend');
     } catch (error) {
-      console.error('[Consultant] End call error:', error);
+      console.error('[Consultant] End error:', error);
     } finally {
       await cleanup();
-      endCall(); // Mark as available
-      resetPolling(); // Resume polling
+      endCall();
+      
+      setTimeout(() => {
+        resetPolling();
+      }, 500);
+      
       router.back();
     }
   };
@@ -143,30 +181,79 @@ const cleanup = async () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.customerName}>{params.customerName}</Text>
-        <Text style={[
-          styles.status,
-          { color: isCustomerConnected ? '#4CAF50' : '#FFA500' }
-        ]}>
-          {isCustomerConnected ? '🟢 Connected' : '🟡 Waiting...'}
+      {/* Remote Video */}
+      {callType === 'video' && remoteUid !== 0 ? (
+        <RtcSurfaceView
+          style={styles.remoteVideo}
+          canvas={{ uid: remoteUid }}
+          zOrderMediaOverlay={false}
+        />
+      ) : (
+        <View style={styles.voiceBackground}>
+          <View style={styles.avatarCircle}>
+            <Ionicons name="person" size={80} color="#fff" />
+          </View>
+          <Text style={styles.customerName}>{params.customerName}</Text>
+        </View>
+      )}
+
+      {/* Local Video - Fixed Position */}
+      {callType === 'video' && isVideoEnabled && (
+        <View style={styles.localVideoContainer}>
+          <RtcSurfaceView
+            style={styles.localVideo}
+            canvas={{ uid: 0 }}
+            zOrderMediaOverlay={true}
+          />
+        </View>
+      )}
+
+      {/* Top Status Bar */}
+      <View style={styles.topBar}>
+        <Text style={styles.statusText}>
+          {isCustomerConnected ? '🟢 Connected' : '🟡 Connecting...'}
         </Text>
-        <Text style={styles.duration}>{formatDuration(duration)}</Text>
+        <Text style={styles.durationText}>{formatDuration(duration)}</Text>
       </View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity
-          onPress={toggleMute}
-          style={[styles.button, isMuted && styles.mutedButton]}
-        >
-          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={32} color="white" />
-          <Text style={styles.buttonLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-        </TouchableOpacity>
+      {/* Bottom Controls */}
+      <View style={styles.bottomBar}>
+        <View style={styles.controls}>
+          {/* Mute */}
+          <TouchableOpacity
+            onPress={toggleMute}
+            style={[styles.button, isMuted && styles.buttonActive]}
+          >
+            <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={28} color="#fff" />
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleEndCall} style={[styles.button, styles.endCall]}>
-          <Ionicons name="call" size={32} color="white" />
-          <Text style={styles.buttonLabel}>End</Text>
-        </TouchableOpacity>
+          {/* Video Toggle */}
+          {callType === 'video' && (
+            <TouchableOpacity
+              onPress={toggleVideo}
+              style={[styles.button, !isVideoEnabled && styles.buttonActive]}
+            >
+              <Ionicons name={isVideoEnabled ? 'videocam' : 'videocam-off'} size={28} color="#fff" />
+            </TouchableOpacity>
+          )}
+
+          {/* End Call */}
+          <TouchableOpacity onPress={handleEndCall} style={styles.endButton}>
+            <Ionicons name="call" size={32} color="#fff" />
+          </TouchableOpacity>
+
+          {/* Switch Camera */}
+          {callType === 'video' && isVideoEnabled && (
+            <TouchableOpacity onPress={switchCamera} style={styles.button}>
+              <Ionicons name="camera-reverse" size={28} color="#fff" />
+            </TouchableOpacity>
+          )}
+
+          {/* Speaker */}
+          <TouchableOpacity style={styles.button}>
+            <Ionicons name="volume-high" size={28} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -175,53 +262,103 @@ const cleanup = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    paddingTop: 60,
+    backgroundColor: '#000',
   },
-  header: {
+  remoteVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  voiceBackground: {
+    flex: 1,
+    backgroundColor: '#667eea',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 60,
+  },
+  avatarCircle: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   customerName: {
-    color: 'white',
+    color: '#fff',
     fontSize: 24,
     fontWeight: '600',
-    marginBottom: 8,
   },
-  status: {
-    fontSize: 18,
+  localVideoContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    width: 100,
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+  },
+  localVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 50,
+    paddingBottom: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  duration: {
-    color: '#888',
-    fontSize: 32,
-    fontWeight: '300',
+  durationText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 40,
+    paddingTop: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   controls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 30,
-    marginTop: 'auto',
-    marginBottom: 60,
+    alignItems: 'center',
+    gap: 20,
   },
   button: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#333',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mutedButton: {
-    backgroundColor: '#666',
+  buttonActive: {
+    backgroundColor: 'rgba(220, 38, 38, 0.8)',
   },
-  endCall: {
-    backgroundColor: '#ff3b30',
-  },
-  buttonLabel: {
-    color: 'white',
-    fontSize: 12,
-    marginTop: 4,
+  endButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '135deg' }],
   },
 });

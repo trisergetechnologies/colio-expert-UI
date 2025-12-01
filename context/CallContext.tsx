@@ -15,13 +15,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const startCall = (sessionId: string) => {
-    console.log('[CallContext] Call started:', sessionId);
+    console.log('[CallContext] ✅ Call started:', sessionId);
     setIsInCall(true);
     setCurrentSessionId(sessionId);
   };
 
   const endCall = () => {
-    console.log('[CallContext] Call ended');
+    console.log('[CallContext] ❌ Call ended');
     setIsInCall(false);
     setCurrentSessionId(null);
   };

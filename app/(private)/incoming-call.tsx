@@ -68,122 +68,116 @@ export default function IncomingCallScreen() {
     return true;
   };
 
-  const handleAccept = async () => {
-    if (hasAccepted || loading) return;
+const handleAccept = async () => {
+  if (hasAccepted || loading) return;
 
-    setHasAccepted(true);
-    setLoading(true);
-    stopVibration();
+  setHasAccepted(true);
+  setLoading(true);
+  stopVibration();
 
-    try {
-      console.log('[Consultant] === ACCEPTING CALL ===');
-      
-      // ✅ Request permissions first
-      const hasPermissions = await requestPermissions();
-      if (!hasPermissions) {
-        router.back();
-        return;
-      }
-      
-      const jwt = await getToken();
-      if (!jwt) {
-        alert('Authentication required');
-        router.back();
-        return;
-      }
-      
-      const answerRes = await axios.post(
-        `${API_BASE_URL}/communication/call/answer`,
-        { sessionId },
-        { headers: { Authorization: `Bearer ${jwt}` } }
-      );
-
-      if (!answerRes.data.success) {
-        alert('Failed to accept call');
-        router.back();
-        return;
-      }
-
-      const { rtcToken, channelName: channel } = answerRes.data.data;
-      console.log('[Consultant] Got token');
-      console.log('[Consultant] Channel:', channel);
-
-      // ✅ Create and initialize engine (createEngine does everything)
-      console.log('[Consultant] Creating Agora engine...');
-      const engine = await createEngine(AGORA_APP_ID);
-      if (!engine) {
-        alert('Failed to initialize call engine');
-        router.back();
-        return;
-      }
-      console.log('[Consultant] ✅ Engine ready');
-
-      // ✅ Register event handlers
-      console.log('[Consultant] Registering event handlers...');
-      engine.registerEventHandler({
-        onJoinChannelSuccess: (connection: any, elapsed: number) => {
-          console.log('[Consultant] 🎊 JOIN SUCCESS!');
-          console.log('[Consultant] My UID:', connection.localUid);
-        },
-        
-        onUserJoined: (connection: any, remoteUid: number, elapsed: number) => {
-          console.log('[Consultant] 👤 CUSTOMER JOINED! UID:', remoteUid);
-        },
-        
-        onUserOffline: (connection: any, remoteUid: number, reason: number) => {
-          console.log('[Consultant] 👋 Customer left');
-        },
-        
-        onError: (err: any, msg: string) => {
-          console.error('[Consultant] ❌ Agora error:', err, msg);
-        },
-      });
-
-      // ✅ Enable video if needed
-      if (callType === 'video') {
-        await engine.enableVideo();
-        console.log('[Consultant] ✅ Video enabled');
-      }
-
-      // ✅ Join channel
-      console.log('[Consultant] Joining channel:', channel);
-      const joinResult = await engine.joinChannel(rtcToken, channel, 0);
-      console.log('[Consultant] Join result:', joinResult);
-
-      if (joinResult !== 0) {
-        console.error('[Consultant] ❌ Join failed:', joinResult);
-        alert(`Failed to join call (code: ${joinResult})`);
-        router.back();
-        return;
-      }
-
-      startCall(sessionId);
-
-      // Store engine globally
-      (global as any).consultantEngine = engine;
-
-      router.replace({
-        pathname: '/call',
-        params: {
-          sessionId,
-          callType,
-          customerName,
-          channelName: channel,
-        },
-      });
-    } catch (err: any) {
-      console.error('[Consultant] ❌ Accept error:', err);
-      
-      if (err?.response?.status === 404) {
-        console.log('[Consultant] Call already answered');
-      } else {
-        alert('Failed to join call');
-      }
+  try {
+    console.log('[Consultant] === ACCEPTING CALL ===');
+    
+    const hasPermissions = await requestPermissions();
+    if (!hasPermissions) {
       router.back();
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+    
+    const jwt = await getToken();
+    if (!jwt) {
+      alert('Authentication required');
+      router.back();
+      return;
+    }
+    
+    const answerRes = await axios.post(
+      `${API_BASE_URL}/communication/call/answer`,
+      { sessionId },
+      { headers: { Authorization: `Bearer ${jwt}` } }
+    );
+
+    if (!answerRes.data.success) {
+      alert('Failed to accept call');
+      router.back();
+      return;
+    }
+
+    const { rtcToken, channelName: channel } = answerRes.data.data;
+    console.log('[Consultant] Got token');
+    console.log('[Consultant] Channel:', channel);
+
+    console.log('[Consultant] Creating Agora engine...');
+    const engine = await createEngine(AGORA_APP_ID);
+    if (!engine) {
+      alert('Failed to initialize call engine');
+      router.back();
+      return;
+    }
+    console.log('[Consultant] ✅ Engine ready');
+
+    console.log('[Consultant] Registering event handlers...');
+    engine.registerEventHandler({
+      onJoinChannelSuccess: (connection: any, elapsed: number) => {
+        console.log('[Consultant] 🎊 JOIN SUCCESS!');
+        console.log('[Consultant] My UID:', connection.localUid);
+      },
+      
+      onUserJoined: (connection: any, uid: number, elapsed: number) => {
+        console.log('[Consultant] 👤 CUSTOMER JOINED! UID:', uid);
+      },
+      
+      onUserOffline: (connection: any, uid: number, reason: number) => {
+        console.log('[Consultant] 👋 Customer left');
+      },
+      
+      onError: (err: any, msg: string) => {
+        console.error('[Consultant] ❌ Agora error:', err, msg);
+      },
+    });
+
+    // ✅ ENABLE VIDEO IF VIDEO CALL
+    if (callType === 'video') {
+      await engine.enableVideo();
+      console.log('[Consultant] ✅ Video enabled');
+    }
+
+    console.log('[Consultant] Joining channel:', channel);
+    const joinResult = await engine.joinChannel(rtcToken, channel, 0);
+    console.log('[Consultant] Join result:', joinResult);
+
+    if (joinResult !== 0) {
+      console.error('[Consultant] ❌ Join failed:', joinResult);
+      alert(`Failed to join call (code: ${joinResult})`);
+      router.back();
+      return;
+    }
+
+    startCall(sessionId);
+    (global as any).consultantEngine = engine;
+
+    router.push({
+      pathname: '/call',
+      params: {
+        sessionId,
+        callType, // ✅ MAKE SURE THIS IS PASSED
+        customerName,
+        channelName: channel,
+      },
+    });
+  } catch (err: any) {
+    console.error('[Consultant] ❌ Accept error:', err);
+    
+    if (err?.response?.status === 404) {
+      console.log('[Consultant] Call already answered');
+    } else {
+      alert('Failed to join call');
+    }
+    router.back();
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleReject = async () => {
     if (hasAccepted) return;
