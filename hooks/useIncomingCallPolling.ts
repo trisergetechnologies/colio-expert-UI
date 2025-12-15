@@ -24,12 +24,12 @@ export function useIncomingCallPolling() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const isNavigatingRef = useRef(false); // ✅ Prevent duplicate navigation
+  const isNavigatingRef = useRef(false);
   const lastCallIdRef = useRef<string | null>(null);
 
   const pollForCalls = async () => {
     try {
-      // ✅ Don't poll if navigating or on call screens
+      // Don't poll if navigating or on call screens
       if (isNavigatingRef.current) {
         console.log('[Consultant] Currently navigating - skip poll');
         return;
@@ -59,7 +59,7 @@ export function useIncomingCallPolling() {
           if (latestCall.sessionId !== lastCallIdRef.current) {
             console.log('[Consultant] 🔔 New incoming call detected!');
             
-            // ✅ STOP POLLING IMMEDIATELY
+            // STOP POLLING IMMEDIATELY
             isNavigatingRef.current = true;
             lastCallIdRef.current = latestCall.sessionId;
             stopPolling();
@@ -71,6 +71,7 @@ export function useIncomingCallPolling() {
                 callType: latestCall.callType,
                 customerName: latestCall.customerName,
                 customerAvatar: latestCall.customerAvatar,
+                customerId: latestCall.customerId, // ✅ ADDED: Pass customerId for chat
                 channelName: latestCall.channelName,
               },
             });
@@ -90,7 +91,7 @@ export function useIncomingCallPolling() {
 
     console.log('[Consultant] 🔄 Started polling for incoming calls');
     setIsPolling(true);
-    isNavigatingRef.current = false; // ✅ Reset navigation flag
+    isNavigatingRef.current = false;
     
     pollForCalls();
     intervalRef.current = setInterval(pollForCalls, POLL_INTERVAL);
@@ -124,6 +125,6 @@ export function useIncomingCallPolling() {
     isPolling,
     startPolling,
     stopPolling,
-    resetPolling, // ✅ Expose reset function
+    resetPolling,
   };
 }

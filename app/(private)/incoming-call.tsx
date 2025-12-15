@@ -1,11 +1,11 @@
-// app/incoming-call.tsx (Consultant App)
+// app/incoming-call.tsx (Consultant App - With Proper Decline API)
 import { useCallContext } from "@/context/CallContext";
 import { clearEngine, createEngine } from "@/utils/rnAgora";
 import { getToken } from "@/utils/tokenHelper";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Image, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from "react-native";
 
 const API_BASE_URL = "https://api.colio.in/api";
@@ -24,9 +24,12 @@ export default function IncomingCallScreen() {
   const customerName = params.customerName as string;
   const customerAvatar = params.customerAvatar as string;
   const channelName = params.channelName as string;
+  const customerId = params.customerId as string; // ✅ Added for chat bubble alignment
 
   useEffect(() => {
     console.log('[Consultant] Incoming call screen mounted');
+    console.log('[Consultant] Session:', sessionId);
+    console.log('[Consultant] Customer:', customerName, customerId);
     startVibration();
 
     return () => {
@@ -68,134 +71,178 @@ export default function IncomingCallScreen() {
     return true;
   };
 
-const handleAccept = async () => {
-  if (hasAccepted || loading) return;
+  const handleAccept = async () => {
+    if (hasAccepted || loading) return;
 
-  setHasAccepted(true);
-  setLoading(true);
-  stopVibration();
+    setHasAccepted(true);
+    setLoading(true);
+    stopVibration();
 
-  try {
-    console.log('[Consultant] === ACCEPTING CALL ===');
-    
-    const hasPermissions = await requestPermissions();
-    if (!hasPermissions) {
-      router.back();
-      return;
-    }
-    
-    const jwt = await getToken();
-    if (!jwt) {
-      alert('Authentication required');
-      router.back();
-      return;
-    }
-    
-    const answerRes = await axios.post(
-      `${API_BASE_URL}/communication/call/answer`,
-      { sessionId },
-      { headers: { Authorization: `Bearer ${jwt}` } }
-    );
-
-    if (!answerRes.data.success) {
-      alert('Failed to accept call');
-      router.back();
-      return;
-    }
-
-    const { rtcToken, channelName: channel } = answerRes.data.data;
-    console.log('[Consultant] Got token');
-    console.log('[Consultant] Channel:', channel);
-
-    console.log('[Consultant] Creating Agora engine...');
-    const engine = await createEngine(AGORA_APP_ID);
-    if (!engine) {
-      alert('Failed to initialize call engine');
-      router.back();
-      return;
-    }
-    console.log('[Consultant] ✅ Engine ready');
-
-    console.log('[Consultant] Registering event handlers...');
-    engine.registerEventHandler({
-      onJoinChannelSuccess: (connection: any, elapsed: number) => {
-        console.log('[Consultant] 🎊 JOIN SUCCESS!');
-        console.log('[Consultant] My UID:', connection.localUid);
-      },
+    try {
+      console.log('[Consultant] === ACCEPTING CALL ===');
       
-      onUserJoined: (connection: any, uid: number, elapsed: number) => {
-        console.log('[Consultant] 👤 CUSTOMER JOINED! UID:', uid);
-      },
+      const hasPermissions = await requestPermissions();
+      if (!hasPermissions) {
+        setHasAccepted(false);
+        setLoading(false);
+        router.back();
+        return;
+      }
       
-      onUserOffline: (connection: any, uid: number, reason: number) => {
-        console.log('[Consultant] 👋 Customer left');
-      },
+      const jwt = await getToken();
+      if (!jwt) {
+        alert('Authentication required');
+        setHasAccepted(false);
+        setLoading(false);
+        router.back();
+        return;
+      }
       
-      onError: (err: any, msg: string) => {
-        console.error('[Consultant] ❌ Agora error:', err, msg);
-      },
-    });
+      // Call the answer API
+      const answerRes = await axios.post(
+        `${API_BASE_URL}/communication/call/answer`,
+        { sessionId },
+        { headers: { Authorization: `Bearer ${jwt}` } }
+      );
 
-    // ✅ ENABLE VIDEO IF VIDEO CALL
-    if (callType === 'video') {
-      await engine.enableVideo();
-      console.log('[Consultant] ✅ Video enabled');
-    }
+      if (!answerRes.data.success) {
+        alert('Failed to accept call');
+        setHasAccepted(false);
+        setLoading(false);
+        router.back();
+        return;
+      }
 
-    console.log('[Consultant] Joining channel:', channel);
-    const joinResult = await engine.joinChannel(rtcToken, channel, 0);
-    console.log('[Consultant] Join result:', joinResult);
+      const { rtcToken, channelName: channel } = answerRes.data.data;
+      console.log('[Consultant] Got token');
+      console.log('[Consultant] Channel:', channel);
 
-    if (joinResult !== 0) {
-      console.error('[Consultant] ❌ Join failed:', joinResult);
-      alert(`Failed to join call (code: ${joinResult})`);
+      // Create Agora engine
+      console.log('[Consultant] Creating Agora engine...');
+      const engine = await createEngine(AGORA_APP_ID);
+      if (!engine) {
+        alert('Failed to initialize call engine');
+        setHasAccepted(false);
+        setLoading(false);
+        router.back();
+        return;
+      }
+      console.log('[Consultant] ✅ Engine ready');
+
+      // Register event handlers
+      console.log('[Consultant] Registering event handlers...');
+      engine.registerEventHandler({
+        onJoinChannelSuccess: (connection: any, elapsed: number) => {
+          console.log('[Consultant] 🎊 JOIN SUCCESS!');
+          console.log('[Consultant] My UID:', connection.localUid);
+        },
+        
+        onUserJoined: (connection: any, uid: number, elapsed: number) => {
+          console.log('[Consultant] 👤 CUSTOMER JOINED! UID:', uid);
+        },
+        
+        onUserOffline: (connection: any, uid: number, reason: number) => {
+          console.log('[Consultant] 👋 Customer left, reason:', reason);
+        },
+        
+        onError: (err: any, msg: string) => {
+          console.error('[Consultant] ❌ Agora error:', err, msg);
+        },
+      });
+
+      // Enable video if video call
+      if (callType === 'video') {
+        await engine.enableVideo();
+        console.log('[Consultant] ✅ Video enabled');
+      }
+
+      // Join channel
+      console.log('[Consultant] Joining channel:', channel);
+      const joinResult = await engine.joinChannel(rtcToken, channel, 0);
+      console.log('[Consultant] Join result:', joinResult);
+
+      if (joinResult !== 0) {
+        console.error('[Consultant] ❌ Join failed:', joinResult);
+        alert(`Failed to join call (code: ${joinResult})`);
+        try {
+          await engine.release();
+        } catch (e) {}
+        clearEngine();
+        setHasAccepted(false);
+        setLoading(false);
+        router.back();
+        return;
+      }
+
+      // Success - store engine globally and navigate
+      startCall(sessionId);
+      (global as any).consultantEngine = engine;
+
+      // Navigate to call screen with all required params
+      router.push({
+        pathname: '/call',
+        params: {
+          sessionId,
+          callType,
+          customerName,
+          customerId, // ✅ Pass customerId for chat bubble alignment in call screen
+          channelName: channel,
+        },
+      });
+    } catch (err: any) {
+      console.error('[Consultant] ❌ Accept error:', err);
+      
+      if (err?.response?.status === 404) {
+        console.log('[Consultant] Call already answered or ended');
+        Alert.alert('Call Unavailable', 'This call is no longer available');
+      } else {
+        alert('Failed to join call');
+      }
+      
+      setHasAccepted(false);
+      setLoading(false);
       router.back();
-      return;
     }
+  };
 
-    startCall(sessionId);
-    (global as any).consultantEngine = engine;
-
-    router.push({
-      pathname: '/call',
-      params: {
-        sessionId,
-        callType, // ✅ MAKE SURE THIS IS PASSED
-        customerName,
-        channelName: channel,
-      },
-    });
-  } catch (err: any) {
-    console.error('[Consultant] ❌ Accept error:', err);
-    
-    if (err?.response?.status === 404) {
-      console.log('[Consultant] Call already answered');
-    } else {
-      alert('Failed to join call');
-    }
-    router.back();
-  } finally {
-    setLoading(false);
-  }
-};
-
+  // ✅ MODIFIED: Use proper /call/decline API instead of /session/end
   const handleReject = async () => {
     if (hasAccepted) return;
     stopVibration();
 
     try {
+      console.log('[Consultant] 📞 Declining call...');
       const jwt = await getToken();
+      
       if (jwt) {
+        // ✅ Use the new decline endpoint - creates proper call_log message
         await axios.post(
-          `${API_BASE_URL}/communication/session/end`,
-          { sessionId, autoEnded: true },
+          `${API_BASE_URL}/communication/call/decline`,
+          { sessionId },
           { headers: { Authorization: `Bearer ${jwt}` } }
         );
+        console.log('[Consultant] ✅ Call declined successfully');
       }
-    } catch (err) {
-      console.warn("[Consultant] Reject error:", err);
+    } catch (err: any) {
+      console.warn("[Consultant] Decline error:", err?.response?.data || err.message);
+      
+      // Fallback to old endpoint if decline fails (backwards compatibility)
+      try {
+        console.log('[Consultant] Trying fallback endpoint...');
+        const jwt = await getToken();
+        if (jwt) {
+          await axios.post(
+            `${API_BASE_URL}/communication/session/end`,
+            { sessionId, autoEnded: true },
+            { headers: { Authorization: `Bearer ${jwt}` } }
+          );
+          console.log('[Consultant] ✅ Fallback decline successful');
+        }
+      } catch (fallbackErr) {
+        console.warn('[Consultant] Fallback end also failed:', fallbackErr);
+      }
     } finally {
-      // ✅ Clear engine if it exists
+      // Clear engine if it exists (shouldn't exist on decline, but safety check)
       const engine = (global as any).consultantEngine;
       if (engine) {
         try {
@@ -213,6 +260,7 @@ const handleAccept = async () => {
 
   return (
     <View style={styles.container}>
+      {/* Avatar with pulse animation */}
       <View style={styles.avatarContainer}>
         <View style={styles.pulseOuter}>
           <View style={styles.pulseInner}>
@@ -226,11 +274,13 @@ const handleAccept = async () => {
         </View>
       </View>
 
+      {/* Caller info */}
       <Text style={styles.name}>{customerName || 'Customer'}</Text>
       <Text style={styles.callType}>
         Incoming {callType === 'video' ? 'Video' : 'Voice'} Call
       </Text>
 
+      {/* Accept/Decline buttons */}
       <View style={styles.controls}>
         <TouchableOpacity
           onPress={handleReject}
