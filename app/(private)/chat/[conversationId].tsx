@@ -2,42 +2,53 @@
 import { POLLING_INTERVALS } from '@/constants/chatConstants';
 import { useAuth } from '@/context/AuthContext';
 import {
-    getMessages,
-    markAsRead,
-    Message,
-    pollMessages,
-    sendMessage,
-    startConversation,
+  getMessages,
+  markAsRead,
+  Message,
+  pollMessages,
+  sendMessage,
+  startConversation,
 } from '@/services/chatApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
+  // Params validation
   const conversationIdParam = params.conversationId as string | undefined;
+  const isValidConversationId =
+    conversationIdParam &&
+    conversationIdParam !== '[conversationId]' &&
+    conversationIdParam.length === 24;
+
   const participantId = params.participantId as string;
   const participantName = params.participantName as string;
   const participantAvatar = params.participantAvatar as string;
 
-  const [conversationId, setConversationId] = useState<string | null>(conversationIdParam || null);
+  // State
+  const [conversationId, setConversationId] = useState<string | null>(
+    isValidConversationId ? conversationIdParam : null
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,10 +57,28 @@ export default function ChatScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
 
+  // Refs
   const flatListRef = useRef<FlatList>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastPollTimeRef = useRef<string>(new Date().toISOString());
 
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardDidShow.remove();
+    };
+  }, []);
+
+  // Initialize chat
   useEffect(() => {
     initializeChat();
 
@@ -60,8 +89,9 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // Start polling when conversationId is available
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && conversationId.length === 24) {
       startPolling();
       markAsRead(conversationId);
     }
@@ -77,9 +107,10 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
-      let convId = conversationIdParam;
+      let convId = isValidConversationId ? conversationIdParam : null;
 
       if (!convId && participantId) {
+        console.log('[Consultant][Chat] Starting conversation with:', participantId);
         const conversation = await startConversation(participantId);
         if (conversation) {
           convId = conversation.id;
@@ -87,9 +118,11 @@ export default function ChatScreen() {
         }
       }
 
-      if (convId) {
+      if (convId && convId.length === 24) {
         setConversationId(convId);
         await fetchMessages(convId, 1);
+      } else {
+        console.error('[Consultant][Chat] Invalid or missing conversationId');
       }
     } catch (error) {
       console.error('[Consultant][Chat] Initialize error:', error);
@@ -99,6 +132,11 @@ export default function ChatScreen() {
   };
 
   const fetchMessages = async (convId: string, pageNum: number) => {
+    if (!convId || convId.length !== 24) {
+      console.error('[Consultant][Chat] Invalid convId:', convId);
+      return;
+    }
+
     try {
       const result = await getMessages(convId, pageNum, 50);
 
@@ -116,7 +154,7 @@ export default function ChatScreen() {
         lastPollTimeRef.current = latestMsg.createdAt;
       }
     } catch (error) {
-      console.error('[Consultant][Chat] Fetch error:', error);
+      console.error('[Consultant][Chat] Fetch messages error:', error);
     }
   };
 
@@ -125,8 +163,12 @@ export default function ChatScreen() {
       clearInterval(pollIntervalRef.current);
     }
 
+    if (!conversationId || conversationId.length !== 24) {
+      return;
+    }
+
     pollIntervalRef.current = setInterval(async () => {
-      if (!conversationId) return;
+      if (!conversationId || conversationId.length !== 24) return;
 
       try {
         const result = await pollMessages(conversationId, lastPollTimeRef.current);
@@ -135,6 +177,10 @@ export default function ChatScreen() {
           setMessages(prev => [...prev, ...result.messages]);
           lastPollTimeRef.current = result.serverTime;
           markAsRead(conversationId);
+
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
         }
       } catch (error) {
         console.error('[Consultant][Chat] Poll error:', error);
@@ -143,12 +189,13 @@ export default function ChatScreen() {
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() || !conversationId || isSending) return;
+    if (!inputText.trim() || !conversationId || conversationId.length !== 24 || isSending) {
+      return;
+    }
 
     const messageText = inputText.trim();
     setInputText('');
     setIsSending(true);
-    Keyboard.dismiss();
 
     try {
       const newMessage = await sendMessage(conversationId, messageText, 'text');
@@ -170,7 +217,9 @@ export default function ChatScreen() {
   };
 
   const handleLoadMore = async () => {
-    if (isLoadingMore || !hasMore || !conversationId) return;
+    if (isLoadingMore || !hasMore || !conversationId || conversationId.length !== 24) {
+      return;
+    }
 
     setIsLoadingMore(true);
     await fetchMessages(conversationId, page + 1);
@@ -205,18 +254,28 @@ export default function ChatScreen() {
 
   const shouldShowDateSeparator = (currentMsg: Message, prevMsg?: Message) => {
     if (!prevMsg) return true;
+    return (
+      new Date(currentMsg.createdAt).toDateString() !==
+      new Date(prevMsg.createdAt).toDateString()
+    );
+  };
 
-    const currentDate = new Date(currentMsg.createdAt).toDateString();
-    const prevDate = new Date(prevMsg.createdAt).toDateString();
-
-    return currentDate !== prevDate;
+  // ✅ FIX: Properly determine if message is from current user
+  const isOwnMessage = (message: Message): boolean => {
+    const currentUserId = user?.userId?.toString() || user?.userId?.toString() || '';
+    const senderId = typeof message.sender === 'object' 
+      ? (message.sender._id?.toString() || message.sender._id?.toString() || '')
+      : message.sender?.toString() || '';
+    
+    return currentUserId === senderId;
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isOwnMessage = item.sender._id === user?._id;
+    const isOwn = isOwnMessage(item);
     const prevMessage = index > 0 ? messages[index - 1] : undefined;
     const showDateSeparator = shouldShowDateSeparator(item, prevMessage);
 
+    // Call log message - centered
     if (item.messageType === 'call_log') {
       return (
         <View>
@@ -232,16 +291,24 @@ export default function ChatScreen() {
               <Ionicons
                 name={item.callLogData?.callType === 'video' ? 'videocam' : 'call'}
                 size={16}
-                color={item.isMissedCall ? '#EF4444' : '#4CAF50'}
+                color={
+                  item.callLogData?.status === 'missed' ||
+                  item.callLogData?.status === 'declined'
+                    ? '#EF4444'
+                    : '#22C55E'
+                }
               />
               <Text style={styles.callLogText}>{item.content}</Text>
-              <Text style={styles.callLogTime}>{formatMessageTime(item.createdAt)}</Text>
+              <Text style={styles.callLogTime}>
+                {formatMessageTime(item.createdAt)}
+              </Text>
             </View>
           </View>
         </View>
       );
     }
 
+    // Regular message
     return (
       <View>
         {showDateSeparator && (
@@ -254,19 +321,19 @@ export default function ChatScreen() {
         <View
           style={[
             styles.messageBubbleContainer,
-            isOwnMessage ? styles.ownMessageContainer : styles.otherMessageContainer,
+            isOwn ? styles.ownMessageContainer : styles.otherMessageContainer,
           ]}
         >
           <View
             style={[
               styles.messageBubble,
-              isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble,
+              isOwn ? styles.ownMessageBubble : styles.otherMessageBubble,
             ]}
           >
             <Text
               style={[
                 styles.messageText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                isOwn ? styles.ownMessageText : styles.otherMessageText,
               ]}
             >
               {item.content}
@@ -274,7 +341,7 @@ export default function ChatScreen() {
             <Text
               style={[
                 styles.messageTime,
-                isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+                isOwn ? styles.ownMessageTime : styles.otherMessageTime,
               ]}
             >
               {formatMessageTime(item.createdAt)}
@@ -296,87 +363,104 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <LinearGradient colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.7)']} style={styles.header}>
+    <View style={styles.container}>
+      {/* Header */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.95)', 'rgba(0,0,0,0.8)']}
+        style={[styles.header, { paddingTop: insets.top + 10 }]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
 
         <View style={styles.profileInfo}>
-          <Image
-            source={{
-              uri: participantAvatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-            }}
-            style={styles.headerAvatar}
-          />
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{
+                uri:
+                  participantAvatar ||
+                  'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              }}
+              style={styles.headerAvatar}
+            />
+          </View>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerName} numberOfLines={1}>
-              {participantName}
+              {participantName || 'Customer'}
             </Text>
-            <Text style={styles.headerStatus}>Customer</Text>
           </View>
         </View>
 
         <View style={styles.headerRight} />
       </LinearGradient>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item._id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.messagesList}
-          ListHeaderComponent={renderHeader}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.1}
-          showsVerticalScrollIndicator={false}
-          inverted={false}
-          onContentSizeChange={() => {
-            if (messages.length > 0 && page === 1) {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }
-          }}
-        />
-      )}
-
-      <View style={styles.inputContainer}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type a message..."
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
+      {/* Messages + Input wrapped in KeyboardAvoidingView */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item._id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesList}
+            ListHeaderComponent={renderHeader}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.1}
+            showsVerticalScrollIndicator={false}
+            inverted={false}
+            onContentSizeChange={() => {
+              if (messages.length > 0 && page === 1) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
+            keyboardShouldPersistTaps="handled"
           />
-        </View>
+        )}
 
-        <TouchableOpacity
+        {/* Input Container */}
+        <View
           style={[
-            styles.sendButton,
-            (!inputText.trim() || isSending) && styles.sendButtonDisabled,
+            styles.inputContainer,
+            { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 12) : 12 },
           ]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || isSending}
         >
-          {isSending ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Ionicons name="send" size={20} color="white" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Type a message..."
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!inputText.trim() || isSending) && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || isSending}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="send" size={20} color="white" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -388,7 +472,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
     paddingBottom: 12,
     paddingHorizontal: 12,
   },
@@ -403,6 +486,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 4,
+  },
+  avatarContainer: {
+    position: 'relative',
   },
   headerAvatar: {
     width: 40,
@@ -419,13 +505,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
-  headerStatus: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 2,
-  },
   headerRight: {
     width: 40,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -435,6 +519,7 @@ const styles = StyleSheet.create({
   messagesList: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    flexGrow: 1,
   },
   loadingMore: {
     paddingVertical: 16,
@@ -522,9 +607,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingTop: 12,
+    backgroundColor: 'rgba(0,0,0,0.95)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
   },
@@ -541,6 +625,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
     maxHeight: 100,
+    minHeight: 20,
   },
   sendButton: {
     width: 44,
