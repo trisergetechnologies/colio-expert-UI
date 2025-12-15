@@ -1,15 +1,15 @@
-import React, { useState } from "react";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
 import GradientBackground from "@/components/Gradientbackground";
 import { ThemedText } from "@/components/ThemedText";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
 
 export default function AboutUsScreen() {
   const router = useRouter();

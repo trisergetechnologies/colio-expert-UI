@@ -50,12 +50,13 @@ export default function AccountScreen() {
   };
 
   const moreOptions = [
+    { id: "11", label: "Chat", icon: "analytics-outline", path: "../(private)/chat" },
     { id: "4", label: "Performance", icon: "analytics-outline", path: "../(dashboard)/performance" },
     { id: "1", label: "Wallet", icon: "wallet", path: "../(tabs)/wallet" },
     { id: "2", label: "Activity", icon: "time-outline", path: "../(private)/history" },
     { id: "3", label: "Referrals", icon: "people-outline", path: "../(dashboard)/referral" },
     { id: "7", label: "About Us", icon: "information-circle-outline", path: "../(dashboard)/AboutUs" },
-     { id: "8", label: "Quick-Assistance", icon: "headset-outline", path: "../(dashboard)/support" },
+    { id: "8", label: "Quick-Assistance", icon: "headset-outline", path: "../(dashboard)/support" },
     { id: "5", label: "Terms & Conditions", icon: "document-text-outline" },
     { id: "6", label: "Privacy Policy", icon: "lock-closed-outline" },
     { id: "9", label: "Logout", icon: "log-out-outline" },
