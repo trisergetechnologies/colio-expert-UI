@@ -23,7 +23,6 @@ import {
   Dimensions,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
   StyleSheet,
@@ -39,6 +38,16 @@ const API_BASE_URL = "https://api.colio.in/api";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const EMOJIS = CALL_EMOJIS;
+
+// Floating notification type
+interface FloatingNotification {
+  id: number;
+  type: 'emoji' | 'message';
+  content: string;
+  isOwn: boolean;
+  animation: Animated.Value;
+  senderName?: string;
+}
 
 export default function ConsultantCallScreen() {
   const router = useRouter();
@@ -60,46 +69,49 @@ export default function ConsultantCallScreen() {
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // Emoji states
-  const [floatingEmojis, setFloatingEmojis] = useState<Array<{
-    id: number;
-    emoji: string;
-    animation: Animated.Value;
-    isOwn: boolean;
-  }>>([]);
+  // Floating notifications (emojis + message bubbles)
+  const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
 
   // Refs
   const engineRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const hasCleanedUpRef = useRef(false);
-  const emojiIdRef = useRef(0);
+  const notificationIdRef = useRef(0);
   const emojiPollRef = useRef<NodeJS.Timeout | null>(null);
   const chatPollRef = useRef<NodeJS.Timeout | null>(null);
   const lastEmojiPollTimeRef = useRef<number>(Date.now());
   const lastChatPollTimeRef = useRef<string>(new Date().toISOString());
   const chatListRef = useRef<FlatList>(null);
+  const processedMessageIds = useRef<Set<string>>(new Set());
 
   const sessionId = params.sessionId as string;
   const callType = params.callType as string;
   const customerName = params.customerName as string || 'Customer';
   const customerId = params.customerId as string;
 
-  // Keyboard listener
+  // ✅ Keyboard listeners
   useEffect(() => {
-    const keyboardShow = Keyboard.addListener(
+    const keyboardWillShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => setKeyboardHeight(e.endCoordinates.height)
+      (e) => {
+        setKeyboardVisible(true);
+        setKeyboardHeight(e.endCoordinates.height);
+      }
     );
-    const keyboardHide = Keyboard.addListener(
+    const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardHeight(0)
+      () => {
+        setKeyboardVisible(false);
+        setKeyboardHeight(0);
+      }
     );
 
     return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
     };
   }, []);
 
@@ -126,8 +138,9 @@ export default function ConsultantCallScreen() {
       setDuration(prev => prev + 1);
     }, 1000);
 
-    // Start emoji polling
+    // ✅ Start BOTH polling immediately when call starts
     startEmojiPolling();
+    startChatPolling();
 
     // Load initial chat messages
     fetchChatMessages();
@@ -143,18 +156,6 @@ export default function ConsultantCallScreen() {
       }
     };
   }, []);
-
-  // Start/stop chat polling when chat panel opens/closes
-  useEffect(() => {
-    if (showChat) {
-      startChatPolling();
-    } else {
-      if (chatPollRef.current) {
-        clearInterval(chatPollRef.current);
-        chatPollRef.current = null;
-      }
-    }
-  }, [showChat]);
 
   const setupEventListeners = () => {
     if (!engineRef.current) return;
@@ -190,11 +191,11 @@ export default function ConsultantCallScreen() {
       if (engineRef.current) {
         try {
           await engineRef.current.leaveChannel();
-        } catch (e) {}
+        } catch (e) { }
 
         try {
           await engineRef.current.release();
-        } catch (e) {}
+        } catch (e) { }
 
         (global as any).consultantEngine = null;
         engineRef.current = null;
@@ -205,11 +206,41 @@ export default function ConsultantCallScreen() {
     }
   };
 
+  // ============ FLOATING NOTIFICATION ============
+
+  const showFloatingNotification = (
+    type: 'emoji' | 'message',
+    content: string,
+    isOwn: boolean,
+    senderName?: string
+  ) => {
+    const id = notificationIdRef.current++;
+    const animation = new Animated.Value(0);
+
+    setFloatingNotifications(prev => [...prev, {
+      id,
+      type,
+      content,
+      isOwn,
+      animation,
+      senderName
+    }]);
+
+    Animated.timing(animation, {
+      toValue: 1,
+      duration: type === 'message' ? 3500 : 2500,
+      useNativeDriver: true,
+    }).start(() => {
+      setFloatingNotifications(prev => prev.filter(n => n.id !== id));
+    });
+  };
+
   // ============ EMOJI FUNCTIONS ============
 
   const startEmojiPolling = () => {
     if (emojiPollRef.current) return;
 
+    console.log('[Consultant] 🎭 Starting emoji polling');
     lastEmojiPollTimeRef.current = Date.now();
 
     emojiPollRef.current = setInterval(async () => {
@@ -218,7 +249,9 @@ export default function ConsultantCallScreen() {
 
         if (result.emojis?.length > 0) {
           const customerEmojis = result.emojis.filter(e => e.senderType === 'customer');
-          customerEmojis.forEach(e => showFloatingEmoji(e.emoji, false));
+          customerEmojis.forEach(e => {
+            showFloatingNotification('emoji', e.emoji, false);
+          });
         }
         lastEmojiPollTimeRef.current = result.serverTime;
       } catch (error) {
@@ -227,23 +260,9 @@ export default function ConsultantCallScreen() {
     }, POLLING_INTERVALS.IN_CALL_EMOJIS);
   };
 
-  const showFloatingEmoji = (emoji: string, isOwn: boolean) => {
-    const id = emojiIdRef.current++;
-    const animation = new Animated.Value(0);
-
-    setFloatingEmojis(prev => [...prev, { id, emoji, animation, isOwn }]);
-
-    Animated.timing(animation, {
-      toValue: 1,
-      duration: 2500,
-      useNativeDriver: true,
-    }).start(() => {
-      setFloatingEmojis(prev => prev.filter(e => e.id !== id));
-    });
-  };
-
   const handleSendEmoji = async (emoji: string) => {
-    showFloatingEmoji(emoji, true);
+    // Show own emoji floating
+    showFloatingNotification('emoji', emoji, true);
 
     try {
       await sendCallEmoji(sessionId, emoji);
@@ -257,26 +276,52 @@ export default function ConsultantCallScreen() {
   const fetchChatMessages = async () => {
     try {
       const result = await getInCallMessages(sessionId);
-      setChatMessages(result.messages || []);
+      const messages = result.messages || [];
+      setChatMessages(messages);
+
+      // Mark all initial messages as processed
+      messages.forEach(m => processedMessageIds.current.add(m._id));
+
       lastChatPollTimeRef.current = result.serverTime;
     } catch (error) {
       console.error('[Consultant] Fetch chat error:', error);
     }
   };
 
+  // ✅ Chat polling starts immediately and runs continuously
   const startChatPolling = () => {
     if (chatPollRef.current) return;
+
+    console.log('[Consultant] 💬 Starting chat polling');
 
     chatPollRef.current = setInterval(async () => {
       try {
         const result = await getInCallMessages(sessionId, lastChatPollTimeRef.current);
 
         if (result.messages?.length > 0) {
-          setChatMessages(prev => {
-            const existingIds = new Set(prev.map(m => m._id));
-            const newMessages = result.messages.filter(m => !existingIds.has(m._id));
-            return [...prev, ...newMessages];
+          result.messages.forEach(msg => {
+            // Only process new messages
+            if (!processedMessageIds.current.has(msg._id)) {
+              processedMessageIds.current.add(msg._id);
+
+              // Add to chat list
+              setChatMessages(prev => [...prev, msg]);
+
+              // Check if it's from customer (not own message)
+              const isOwn = isOwnMessage(msg);
+
+              // ✅ Show floating bubble for incoming messages (not own)
+              if (!isOwn) {
+                showFloatingNotification(
+                  'message',
+                  msg.content,
+                  false,
+                  customerName
+                );
+              }
+            }
           });
+
           lastChatPollTimeRef.current = result.serverTime;
         }
       } catch (error) {
@@ -296,7 +341,13 @@ export default function ConsultantCallScreen() {
       const result = await sendInCallMessage(sessionId, content, 'text');
 
       if (result?.message) {
+        // Mark as processed and add to list
+        processedMessageIds.current.add(result.message._id);
         setChatMessages(prev => [...prev, result.message]);
+
+        // Show own message as floating bubble too (optional)
+        showFloatingNotification('message', content, true);
+
         setTimeout(() => {
           chatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
@@ -310,7 +361,7 @@ export default function ConsultantCallScreen() {
   };
 
   const isOwnMessage = (message: Message): boolean => {
-    const currentUserId = user?.userId?.toString() || user?.userId?.toString() || '';
+    const currentUserId = user?.userId?.toString() || user?._id?.toString() || user?.id?.toString() || '';
     const senderId = typeof message.sender === 'object'
       ? (message.sender._id?.toString() || '')
       : message.sender?.toString() || '';
@@ -395,6 +446,88 @@ export default function ConsultantCallScreen() {
     );
   };
 
+  // ✅ Render floating notification (emoji or message bubble)
+  const renderFloatingNotification = (notification: FloatingNotification) => {
+    const { id, type, content, isOwn, animation, senderName } = notification;
+
+    if (type === 'emoji') {
+      return (
+        <Animated.Text
+          key={id}
+          style={[
+            styles.floatingEmoji,
+            isOwn ? styles.floatingRight : styles.floatingLeft,
+            {
+              opacity: animation.interpolate({
+                inputRange: [0, 0.2, 0.8, 1],
+                outputRange: [0, 1, 1, 0],
+              }),
+              transform: [
+                {
+                  translateY: animation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -250],
+                  }),
+                },
+                {
+                  scale: animation.interpolate({
+                    inputRange: [0, 0.2, 0.8, 1],
+                    outputRange: [0.5, 1.3, 1, 0.8],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {content}
+        </Animated.Text>
+      );
+    }
+
+    // Message bubble
+    return (
+      <Animated.View
+        key={id}
+        style={[
+          styles.floatingMessageBubble,
+          isOwn ? styles.floatingRight : styles.floatingLeft,
+          {
+            opacity: animation.interpolate({
+              inputRange: [0, 0.1, 0.85, 1],
+              outputRange: [0, 1, 1, 0],
+            }),
+            transform: [
+              {
+                translateY: animation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -180],
+                }),
+              },
+              {
+                scale: animation.interpolate({
+                  inputRange: [0, 0.1, 0.9, 1],
+                  outputRange: [0.8, 1, 1, 0.9],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {!isOwn && senderName && (
+          <Text style={styles.floatingMessageSender}>{senderName}</Text>
+        )}
+        <Text style={styles.floatingMessageText} numberOfLines={3}>
+          {content}
+        </Text>
+      </Animated.View>
+    );
+  };
+
+  // Calculate chat panel position based on keyboard
+  const chatPanelBottom = keyboardVisible
+    ? keyboardHeight + 10
+    : 160;
+
   return (
     <View style={styles.container}>
       {/* Background */}
@@ -435,38 +568,8 @@ export default function ConsultantCallScreen() {
         </View>
       )}
 
-      {/* Floating Emojis */}
-      {floatingEmojis.map(({ id, emoji, animation, isOwn }) => (
-        <Animated.Text
-          key={id}
-          style={[
-            styles.floatingEmoji,
-            isOwn ? styles.floatingEmojiRight : styles.floatingEmojiLeft,
-            {
-              opacity: animation.interpolate({
-                inputRange: [0, 0.2, 0.8, 1],
-                outputRange: [0, 1, 1, 0],
-              }),
-              transform: [
-                {
-                  translateY: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -250],
-                  }),
-                },
-                {
-                  scale: animation.interpolate({
-                    inputRange: [0, 0.2, 0.8, 1],
-                    outputRange: [0.5, 1.3, 1, 0.8],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {emoji}
-        </Animated.Text>
-      ))}
+      {/* ✅ Floating Notifications (Emojis + Message Bubbles) */}
+      {floatingNotifications.map(renderFloatingNotification)}
 
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
@@ -482,15 +585,16 @@ export default function ConsultantCallScreen() {
         <Text style={styles.topBarDuration}>{formatDuration(duration)}</Text>
       </View>
 
-      {/* Chat Panel */}
+      {/* ✅ Chat Panel with keyboard handling */}
       {showChat && (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <View
           style={[
             styles.chatPanel,
-            { bottom: 160, maxHeight: SCREEN_HEIGHT * 0.45 }
+            {
+              bottom: chatPanelBottom,
+              maxHeight: keyboardVisible ? SCREEN_HEIGHT * 0.35 : SCREEN_HEIGHT * 0.45
+            }
           ]}
-          keyboardVerticalOffset={0}
         >
           <View style={styles.chatHeader}>
             <Text style={styles.chatHeaderText}>Chat</Text>
@@ -525,6 +629,11 @@ export default function ConsultantCallScreen() {
               placeholderTextColor="rgba(255,255,255,0.4)"
               multiline
               maxLength={500}
+              onFocus={() => {
+                setTimeout(() => {
+                  chatListRef.current?.scrollToEnd({ animated: true });
+                }, 300);
+              }}
             />
             <TouchableOpacity
               style={[
@@ -537,62 +646,64 @@ export default function ConsultantCallScreen() {
               <Ionicons name="send" size={18} color="white" />
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       )}
 
-      {/* Bottom Controls */}
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
-        {/* Emoji Row */}
-        <View style={styles.emojiRow}>
-          <TouchableOpacity
-            style={[styles.emojiButton, showChat && styles.emojiButtonActive]}
-            onPress={() => setShowChat(!showChat)}
-          >
-            <Ionicons name="chatbubble-ellipses" size={22} color="white" />
-          </TouchableOpacity>
-          {EMOJIS.slice(0, 5).map((emoji, index) => (
+      {/* Bottom Controls - Hidden when keyboard is visible */}
+      {!keyboardVisible && (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
+          {/* Emoji Row */}
+          <View style={styles.emojiRow}>
             <TouchableOpacity
-              key={index}
-              style={styles.emojiButton}
-              onPress={() => handleSendEmoji(emoji)}
+              style={[styles.emojiButton, showChat && styles.emojiButtonActive]}
+              onPress={() => setShowChat(!showChat)}
             >
-              <Text style={styles.emojiText}>{emoji}</Text>
+              <Ionicons name="chatbubble-ellipses" size={22} color="white" />
             </TouchableOpacity>
-          ))}
-        </View>
+            {EMOJIS.slice(0, 5).map((emoji, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.emojiButton}
+                onPress={() => handleSendEmoji(emoji)}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        {/* Main Controls - NO END BUTTON for Consultant */}
-        <View style={styles.controlsRow}>
-          <TouchableOpacity
-            style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-            onPress={toggleMute}
-          >
-            <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color="white" />
-          </TouchableOpacity>
-
-          {callType === 'video' && (
+          {/* Main Controls - NO END BUTTON for Consultant */}
+          <View style={styles.controlsRow}>
             <TouchableOpacity
-              style={[styles.controlButton, !isVideoEnabled && styles.controlButtonActive]}
-              onPress={toggleVideo}
+              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
+              onPress={toggleMute}
             >
-              <Ionicons name={isVideoEnabled ? 'videocam' : 'videocam-off'} size={26} color="white" />
+              <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color="white" />
             </TouchableOpacity>
-          )}
 
-          {callType === 'video' && isVideoEnabled && (
-            <TouchableOpacity style={styles.controlButton} onPress={switchCamera}>
-              <Ionicons name="camera-reverse" size={26} color="white" />
+            {callType === 'video' && (
+              <TouchableOpacity
+                style={[styles.controlButton, !isVideoEnabled && styles.controlButtonActive]}
+                onPress={toggleVideo}
+              >
+                <Ionicons name={isVideoEnabled ? 'videocam' : 'videocam-off'} size={26} color="white" />
+              </TouchableOpacity>
+            )}
+
+            {callType === 'video' && isVideoEnabled && (
+              <TouchableOpacity style={styles.controlButton} onPress={switchCamera}>
+                <Ionicons name="camera-reverse" size={26} color="white" />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.controlButton, !isSpeakerOn && styles.controlButtonActive]}
+              onPress={toggleSpeaker}
+            >
+              <Ionicons name={isSpeakerOn ? 'volume-high' : 'volume-mute'} size={26} color="white" />
             </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={[styles.controlButton, !isSpeakerOn && styles.controlButtonActive]}
-            onPress={toggleSpeaker}
-          >
-            <Ionicons name={isSpeakerOn ? 'volume-high' : 'volume-mute'} size={26} color="white" />
-          </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -661,17 +772,44 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // ✅ Floating notifications
   floatingEmoji: {
     position: 'absolute',
     bottom: 200,
     fontSize: 50,
     zIndex: 100,
   },
-  floatingEmojiRight: {
-    right: 50,
+  floatingRight: {
+    right: 40,
   },
-  floatingEmojiLeft: {
-    left: 50,
+  floatingLeft: {
+    left: 40,
+  },
+  floatingMessageBubble: {
+    position: 'absolute',
+    bottom: 200,
+    maxWidth: SCREEN_WIDTH * 0.6,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingMessageSender: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginBottom: 2,
+  },
+  floatingMessageText: {
+    fontSize: 14,
+    color: '#1a1a1a',
+    lineHeight: 18,
   },
   topBar: {
     position: 'absolute',
