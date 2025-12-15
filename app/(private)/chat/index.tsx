@@ -5,14 +5,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function ChatListScreen() {
@@ -83,9 +83,14 @@ export default function ChatListScreen() {
     }
   };
 
+  // ✅ FIXED: Handle null/undefined lastMessage and content
   const getLastMessagePreview = (conversation: Conversation) => {
     const lastMessage = conversation.lastMessage;
-    if (!lastMessage) return 'No messages yet';
+    
+    // Handle null/undefined lastMessage or content
+    if (!lastMessage || !lastMessage.content) {
+      return 'No messages yet';
+    }
 
     if (lastMessage.messageType === 'call_log') {
       return `📞 ${lastMessage.content}`;
@@ -95,11 +100,15 @@ export default function ChatListScreen() {
       return lastMessage.content;
     }
 
+    // Safely handle content
+    const content = lastMessage.content || '';
     const maxLength = 35;
-    if (lastMessage.content.length > maxLength) {
-      return lastMessage.content.substring(0, maxLength) + '...';
+    
+    if (content.length > maxLength) {
+      return content.substring(0, maxLength) + '...';
     }
-    return lastMessage.content;
+    
+    return content;
   };
 
   const renderConversationItem = ({ item }: { item: Conversation }) => {
