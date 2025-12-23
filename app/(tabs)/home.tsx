@@ -64,13 +64,18 @@ export default function HomeScreen() {
     const token = await getToken();
     const url = `${API_BASE_URL}/consultant/availability`;
     const payload = isOnDuty ? "offWork" : "onWork";
+    
+   
 
     try {
       const res = await axios.put(
         url,
         { availabilityStatus: payload },
         { headers: { Authorization: `Bearer ${token}` } }
+        
+        
       );
+         
 
       if (res.data.success) {
         const onDuty = !isOnDuty;
@@ -78,6 +83,7 @@ export default function HomeScreen() {
         ToastAndroid.show(
           res.data.data?.message || `You are now ${onDuty ? "Online" : "Offline"}`,
           ToastAndroid.SHORT
+          
         );
       } else {
         ToastAndroid.show("Something went wrong. Try again.", ToastAndroid.SHORT);

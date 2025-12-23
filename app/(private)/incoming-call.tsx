@@ -1,15 +1,32 @@
-// app/incoming-call.tsx (Consultant App - With Proper Decline API)
+// app/incoming-call.tsx
 import { useCallContext } from "@/context/CallContext";
 import { clearEngine, createEngine } from "@/utils/rnAgora";
 import { getToken } from "@/utils/tokenHelper";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { Alert, Image, PermissionsAndroid, Platform, StyleSheet, Text, TouchableOpacity, Vibration, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  Easing,
+  Image,
+  PermissionsAndroid,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Vibration,
+  View
+} from "react-native";
 
 const API_BASE_URL = "https://api.colio.in/api";
 const AGORA_APP_ID = "8b9ed38f29bb4b1bbc7958f5fda8b054";
+
+const { width, height } = Dimensions.get('window');
 
 export default function IncomingCallScreen() {
   const router = useRouter();
@@ -26,16 +43,51 @@ export default function IncomingCallScreen() {
   const channelName = params.channelName as string;
   const customerId = params.customerId as string; // ✅ Added for chat bubble alignment
 
+  // Animation Values
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rippleAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     console.log('[Consultant] Incoming call screen mounted');
     console.log('[Consultant] Session:', sessionId);
     console.log('[Consultant] Customer:', customerName, customerId);
     startVibration();
+    startAnimations();
 
     return () => {
       stopVibration();
     };
   }, []);
+
+  const startAnimations = () => {
+    // Breathing animation for avatar
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Ripple effect
+    Animated.loop(
+      Animated.timing(rippleAnim, {
+        toValue: 1,
+        duration: 2000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    ).start();
+  };
 
   const startVibration = () => {
     Vibration.vibrate([1000, 1000], true);
@@ -258,50 +310,96 @@ export default function IncomingCallScreen() {
     }
   };
 
+  const avatarSource = {
+    uri: customerAvatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+  };
+
   return (
     <View style={styles.container}>
-      {/* Avatar with pulse animation */}
-      <View style={styles.avatarContainer}>
-        <View style={styles.pulseOuter}>
-          <View style={styles.pulseInner}>
-            <Image
-              source={{
-                uri: customerAvatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-              }}
-              style={styles.avatar}
-            />
+      <StatusBar barStyle="light-content" />
+      
+      {/* 1. Immersive Background Layer */}
+      <Image
+        source={avatarSource}
+        style={styles.backgroundImage}
+        blurRadius={40}
+      />
+      <View style={styles.backgroundOverlay} />
+
+      <SafeAreaView style={styles.contentContainer}>
+        {/* 2. Top Info */}
+        <View style={styles.topSection}>
+            <View style={styles.callTypeContainer}>
+                <Ionicons 
+                    name={callType === 'video' ? "videocam" : "call"} 
+                    size={16} 
+                    color="#rgba(255,255,255,0.8)" 
+                />
+                <Text style={styles.callType}>
+                    Incoming {callType === 'video' ? 'Video' : 'Voice'} Call
+                </Text>
+            </View>
+            <Text style={styles.name} numberOfLines={2}>{customerName || 'Unknown Caller'}</Text>
+            <Text style={styles.statusText}>Consultation Request</Text>
+        </View>
+
+        {/* 3. Center Animated Avatar */}
+        <View style={styles.avatarSection}>
+          {/* Ripple Effect */}
+          <Animated.View
+            style={[
+              styles.rippleRing,
+              {
+                transform: [{ scale: rippleAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 2.5]
+                })}],
+                opacity: rippleAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.6, 0]
+                })
+              }
+            ]}
+          />
+          {/* Main Breathing Avatar */}
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Image source={avatarSource} style={styles.avatar} />
+          </Animated.View>
+        </View>
+
+        {/* 4. Bottom Actions */}
+        <View style={styles.bottomSection}>
+          <View style={styles.controls}>
+            {/* Decline */}
+            <TouchableOpacity
+              onPress={handleReject}
+              style={styles.actionColumn}
+              disabled={loading || hasAccepted}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.button, styles.rejectButton]}>
+                <Ionicons name="call" size={32} color="white" style={styles.rejectIcon} />
+              </View>
+              <Text style={styles.buttonLabel}>Decline</Text>
+            </TouchableOpacity>
+
+            {/* Accept */}
+            <TouchableOpacity
+              onPress={handleAccept}
+              style={styles.actionColumn}
+              disabled={loading || hasAccepted}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.button, styles.acceptButton]}>
+                <Ionicons name={callType === 'video' ? "videocam" : "call"} size={32} color="white" />
+              </View>
+              <Text style={styles.buttonLabel}>
+                {loading ? 'Connecting...' : 'Accept'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
-
-      {/* Caller info */}
-      <Text style={styles.name}>{customerName || 'Customer'}</Text>
-      <Text style={styles.callType}>
-        Incoming {callType === 'video' ? 'Video' : 'Voice'} Call
-      </Text>
-
-      {/* Accept/Decline buttons */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          onPress={handleReject}
-          style={[styles.button, styles.rejectButton]}
-          disabled={loading || hasAccepted}
-        >
-          <Ionicons name="call" size={36} color="white" style={styles.rejectIcon} />
-          <Text style={styles.buttonLabel}>Decline</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleAccept}
-          style={[styles.button, styles.acceptButton]}
-          disabled={loading || hasAccepted}
-        >
-          <Ionicons name="call" size={36} color="white" />
-          <Text style={styles.buttonLabel}>
-            {loading ? 'Connecting...' : 'Accept'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -309,74 +407,117 @@ export default function IncomingCallScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: width,
+    height: height,
+    opacity: 0.6,
+  },
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: 60,
+  },
+  topSection: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
+    marginTop: 20,
   },
-  avatarContainer: {
-    marginBottom: 40,
-  },
-  pulseOuter: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    justifyContent: 'center',
+  callTypeContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 20,
+    gap: 6
   },
-  pulseInner: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(76, 175, 80, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#4CAF50',
+  callType: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   name: {
     color: 'white',
-    fontSize: 28,
-    fontWeight: '600',
+    fontSize: 34,
+    fontWeight: '700',
+    textAlign: 'center',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  callType: {
-    color: '#888',
+  statusText: {
+    color: '#cccccc',
     fontSize: 16,
-    marginBottom: 80,
+    fontWeight: '400',
+  },
+  avatarSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+  },
+  rippleRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  bottomSection: {
+    paddingBottom: 40,
   },
   controls: {
     flexDirection: 'row',
-    gap: 50,
-    marginTop: 'auto',
-    marginBottom: 80,
+    justifyContent: 'space-around',
+    paddingHorizontal: 40,
+    width: '100%',
+  },
+  actionColumn: {
+    alignItems: 'center',
+    gap: 12,
   },
   button: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   acceptButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#34C759', // iOS Green
   },
   rejectButton: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: '#FF3B30', // iOS Red
   },
   rejectIcon: {
     transform: [{ rotate: '135deg' }],
   },
   buttonLabel: {
     color: 'white',
-    fontSize: 13,
-    marginTop: 6,
+    fontSize: 14,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });

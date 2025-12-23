@@ -21,7 +21,9 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Easing,
   FlatList,
+  Image,
   Keyboard,
   Platform,
   StatusBar,
@@ -87,10 +89,15 @@ export default function ConsultantCallScreen() {
   const chatListRef = useRef<FlatList>(null);
   const processedMessageIds = useRef<Set<string>>(new Set());
 
+  // Animations
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   const sessionId = params.sessionId as string;
   const callType = params.callType as string;
   const customerName = params.customerName as string || 'Customer';
   const customerId = params.customerId as string;
+  // Use a default avatar if none provided (assuming param exists or fallback)
+  const customerAvatar = (params.customerAvatar as string) || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
   // ✅ Keyboard listeners
   useEffect(() => {
@@ -117,6 +124,7 @@ export default function ConsultantCallScreen() {
 
   useEffect(() => {
     StatusBar.setHidden(true);
+    startPulseAnimation();
 
     engineRef.current = (global as any).consultantEngine;
 
@@ -156,6 +164,25 @@ export default function ConsultantCallScreen() {
       }
     };
   }, []);
+
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
 
   const setupEventListeners = () => {
     if (!engineRef.current) return;
@@ -368,7 +395,7 @@ export default function ConsultantCallScreen() {
     return currentUserId === senderId;
   };
 
-  // ============ CALL CONTROLS ============
+  // ============ CALL CONTROLS (Kept but unused in UI) ============
 
   const toggleMute = async () => {
     if (!engineRef.current) return;
@@ -466,7 +493,7 @@ export default function ConsultantCallScreen() {
                 {
                   translateY: animation.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, -250],
+                    outputRange: [0, -350], // Higher float for better visibility
                   }),
                 },
                 {
@@ -500,7 +527,7 @@ export default function ConsultantCallScreen() {
               {
                 translateY: animation.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, -180],
+                  outputRange: [0, -250],
                 }),
               },
               {
@@ -526,11 +553,13 @@ export default function ConsultantCallScreen() {
   // Calculate chat panel position based on keyboard
   const chatPanelBottom = keyboardVisible
     ? keyboardHeight + 10
-    : 160;
+    : 110; // Lower than before since controls are gone
 
   return (
     <View style={styles.container}>
-      {/* Background */}
+      <StatusBar barStyle="light-content" />
+
+      {/* Background Layer */}
       {callType === 'video' && remoteUid !== 0 ? (
         <RtcSurfaceView
           style={styles.remoteVideo}
@@ -538,26 +567,35 @@ export default function ConsultantCallScreen() {
           zOrderMediaOverlay={false}
         />
       ) : (
-        <LinearGradient
-          colors={['#1a1a2e', '#16213e', '#0f3460']}
-          style={styles.backgroundGradient}
-        >
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarRing}>
-              <View style={styles.avatarCircle}>
-                <Ionicons name="person" size={60} color="rgba(255,255,255,0.9)" />
-              </View>
-            </View>
-            <Text style={styles.customerName}>{customerName}</Text>
-            <Text style={styles.callStatusText}>
-              {isCustomerConnected ? 'Connected' : 'Connecting...'}
-            </Text>
-            <Text style={styles.durationText}>{formatDuration(duration)}</Text>
-          </View>
-        </LinearGradient>
+        <View style={styles.audioBackgroundContainer}>
+           {/* Immersive Background Image */}
+           <Image 
+             source={{ uri: customerAvatar }} 
+             style={styles.backgroundImage}
+             blurRadius={50}
+           />
+           <View style={styles.backgroundOverlay} />
+           
+           {/* Main Avatar Content */}
+           <View style={styles.centerContent}>
+             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+               <View style={styles.mainAvatarContainer}>
+                 <Image 
+                   source={{ uri: customerAvatar }} 
+                   style={styles.mainAvatar}
+                 />
+               </View>
+             </Animated.View>
+             
+             <Text style={styles.customerName}>{customerName}</Text>
+             <Text style={styles.callStatusText}>
+               {isCustomerConnected ? 'Consultation in Progress' : 'Connecting...'}
+             </Text>
+           </View>
+        </View>
       )}
 
-      {/* Local Video (PiP) */}
+      {/* Local Video (PiP) - Only for video calls */}
       {callType === 'video' && isVideoEnabled && (
         <View style={[styles.localVideoContainer, { top: insets.top + 60 }]}>
           <RtcSurfaceView
@@ -568,24 +606,21 @@ export default function ConsultantCallScreen() {
         </View>
       )}
 
-      {/* ✅ Floating Notifications (Emojis + Message Bubbles) */}
+      {/* ✅ Floating Notifications */}
       {floatingNotifications.map(renderFloatingNotification)}
 
-      {/* Top Bar */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <View style={styles.topBarStatus}>
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: isCustomerConnected ? '#22C55E' : '#F59E0B' }
-          ]} />
-          <Text style={styles.topBarStatusText}>
-            {isCustomerConnected ? 'Connected' : 'Connecting...'}
-          </Text>
+      {/* Top Floating Pill */}
+      <View style={[styles.topPillContainer, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topPill}>
+           <View style={[
+             styles.statusDot, 
+             { backgroundColor: isCustomerConnected ? '#4CAF50' : '#F59E0B' }
+           ]} />
+           <Text style={styles.topPillTime}>{formatDuration(duration)}</Text>
         </View>
-        <Text style={styles.topBarDuration}>{formatDuration(duration)}</Text>
       </View>
 
-      {/* ✅ Chat Panel with keyboard handling */}
+      {/* ✅ Chat Panel */}
       {showChat && (
         <View
           style={[
@@ -597,9 +632,9 @@ export default function ConsultantCallScreen() {
           ]}
         >
           <View style={styles.chatHeader}>
-            <Text style={styles.chatHeaderText}>Chat</Text>
-            <TouchableOpacity onPress={() => setShowChat(false)}>
-              <Ionicons name="close" size={24} color="white" />
+            <Text style={styles.chatHeaderText}>Messages</Text>
+            <TouchableOpacity onPress={() => setShowChat(false)} style={styles.closeChatButton}>
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           </View>
 
@@ -643,65 +678,44 @@ export default function ConsultantCallScreen() {
               onPress={handleSendMessage}
               disabled={!chatInput.trim() || isSendingMessage}
             >
-              <Ionicons name="send" size={18} color="white" />
+              <Ionicons name="arrow-up" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Bottom Controls - Hidden when keyboard is visible */}
+      {/* Bottom Interaction Bar - Cleaned Up */}
       {!keyboardVisible && (
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Emoji Row */}
-          <View style={styles.emojiRow}>
-            <TouchableOpacity
-              style={[styles.emojiButton, showChat && styles.emojiButtonActive]}
-              onPress={() => setShowChat(!showChat)}
-            >
-              <Ionicons name="chatbubble-ellipses" size={22} color="white" />
-            </TouchableOpacity>
-            {EMOJIS.slice(0, 5).map((emoji, index) => (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 15 }]}>
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            style={styles.bottomGradient}
+          >
+            {/* Interaction Row: Chat Toggle + Emojis */}
+            <View style={styles.interactionRow}>
+              
+              {/* Chat Toggle */}
               <TouchableOpacity
-                key={index}
-                style={styles.emojiButton}
-                onPress={() => handleSendEmoji(emoji)}
+                style={[styles.chatToggleButton, showChat && styles.chatToggleButtonActive]}
+                onPress={() => setShowChat(!showChat)}
               >
-                <Text style={styles.emojiText}>{emoji}</Text>
+                <Ionicons name="chatbubbles" size={24} color="white" />
               </TouchableOpacity>
-            ))}
-          </View>
 
-          {/* Main Controls - NO END BUTTON for Consultant */}
-          <View style={styles.controlsRow}>
-            <TouchableOpacity
-              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-              onPress={toggleMute}
-            >
-              <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color="white" />
-            </TouchableOpacity>
-
-            {callType === 'video' && (
-              <TouchableOpacity
-                style={[styles.controlButton, !isVideoEnabled && styles.controlButtonActive]}
-                onPress={toggleVideo}
-              >
-                <Ionicons name={isVideoEnabled ? 'videocam' : 'videocam-off'} size={26} color="white" />
-              </TouchableOpacity>
-            )}
-
-            {callType === 'video' && isVideoEnabled && (
-              <TouchableOpacity style={styles.controlButton} onPress={switchCamera}>
-                <Ionicons name="camera-reverse" size={26} color="white" />
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={[styles.controlButton, !isSpeakerOn && styles.controlButtonActive]}
-              onPress={toggleSpeaker}
-            >
-              <Ionicons name={isSpeakerOn ? 'volume-high' : 'volume-mute'} size={26} color="white" />
-            </TouchableOpacity>
-          </View>
+              {/* Emoji Scroll */}
+              <View style={styles.emojiContainer}>
+                 {EMOJIS.slice(0, 5).map((emoji, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.emojiButton}
+                      onPress={() => handleSendEmoji(emoji)}
+                    >
+                      <Text style={styles.emojiText}>{emoji}</Text>
+                    </TouchableOpacity>
+                 ))}
+              </View>
+            </View>
+          </LinearGradient>
         </View>
       )}
     </View>
@@ -711,119 +725,124 @@ export default function ConsultantCallScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#000',
   },
   remoteVideo: {
     ...StyleSheet.absoluteFillObject,
   },
-  backgroundGradient: {
-    flex: 1,
+  audioBackgroundContainer: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarSection: {
-    alignItems: 'center',
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    opacity: 0.6,
   },
-  avatarRing: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 3,
-    borderColor: 'rgba(76, 175, 80, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  avatarCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
+  centerContent: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    marginTop: -40,
+  },
+  mainAvatarContainer: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.2)',
+    padding: 4,
+    marginBottom: 25,
+  },
+  mainAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 80,
   },
   customerName: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: 'white',
+    textAlign: 'center',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   callStatusText: {
     fontSize: 16,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 4,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  durationText: {
-    fontSize: 18,
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
-  localVideoContainer: {
-    position: 'absolute',
-    right: 20,
-    width: 100,
-    height: 140,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  localVideo: {
-    width: '100%',
-    height: '100%',
-  },
-  // ✅ Floating notifications
+  
+  // Floating Notifications
   floatingEmoji: {
     position: 'absolute',
-    bottom: 200,
-    fontSize: 50,
+    bottom: 120,
+    fontSize: 55,
     zIndex: 100,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   floatingRight: {
-    right: 40,
+    right: 30,
   },
   floatingLeft: {
-    left: 40,
+    left: 30,
   },
   floatingMessageBubble: {
     position: 'absolute',
-    bottom: 200,
-    maxWidth: SCREEN_WIDTH * 0.6,
+    bottom: 120,
+    maxWidth: SCREEN_WIDTH * 0.65,
     backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 5,
   },
   floatingMessageSender: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#4CAF50',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   floatingMessageText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#1a1a1a',
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  topBar: {
+
+  // Top Bar (Pill Style)
+  topPillContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingBottom: 15,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 50,
   },
-  topBarStatus: {
+  topPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    backgroundColor: 'rgba(30,30,30,0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   statusDot: {
     width: 8,
@@ -831,41 +850,67 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 8,
   },
-  topBarStatusText: {
-    fontSize: 16,
+  topPillTime: {
+    fontSize: 14,
     fontWeight: '600',
     color: 'white',
+    fontVariant: ['tabular-nums'],
   },
-  topBarDuration: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+
+  // Local Video
+  localVideoContainer: {
+    position: 'absolute',
+    right: 20,
+    width: 100,
+    height: 150,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#000',
+    elevation: 5,
   },
+  localVideo: {
+    width: '100%',
+    height: '100%',
+  },
+
+  // Chat Panel (Modern)
   chatPanel: {
     position: 'absolute',
     left: 15,
     right: 15,
-    backgroundColor: 'rgba(20, 20, 30, 0.95)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(20, 20, 25, 0.95)',
+    borderRadius: 24,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
   },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   chatHeaderText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: 'white',
   },
+  closeChatButton: {
+    padding: 4,
+  },
   chatList: {
-    maxHeight: SCREEN_HEIGHT * 0.25,
+    maxHeight: SCREEN_HEIGHT * 0.28,
   },
   chatListContent: {
-    padding: 15,
+    padding: 16,
   },
   chatEmpty: {
     padding: 30,
@@ -876,11 +921,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   chatBubble: {
-    maxWidth: '75%',
+    maxWidth: '80%',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 18,
-    marginVertical: 3,
+    marginVertical: 4,
   },
   chatBubbleOwn: {
     alignSelf: 'flex-end',
@@ -889,15 +934,16 @@ const styles = StyleSheet.create({
   },
   chatBubbleOther: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderBottomLeftRadius: 4,
   },
   chatBubbleText: {
     color: 'white',
     fontSize: 15,
+    lineHeight: 20,
   },
   chatBubbleTime: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 10,
     marginTop: 4,
     alignSelf: 'flex-end',
@@ -906,19 +952,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   chatInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     color: 'white',
     fontSize: 15,
-    maxHeight: 80,
+    maxHeight: 100,
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   chatSendButton: {
     width: 40,
@@ -929,51 +976,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chatSendButtonDisabled: {
-    backgroundColor: 'rgba(76, 175, 80, 0.4)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
+
+  // Bottom Interaction Bar
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: 15,
-    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  emojiRow: {
+  bottomGradient: {
+    paddingTop: 30,
+    paddingBottom: 10,
+  },
+  interactionRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 15,
   },
-  emojiButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  chatToggleButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  emojiButtonActive: {
+  chatToggleButtonActive: {
     backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  emojiContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 30,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  emojiButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emojiText: {
     fontSize: 22,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 20,
-  },
-  controlButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.8)',
   },
 });

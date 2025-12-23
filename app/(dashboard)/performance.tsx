@@ -1,344 +1,261 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  FlatList,
-  Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  withTiming,
-  useAnimatedStyle,
-  Easing,
-} from "react-native-reanimated";
+import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { ThemedText } from "@/components/ThemedText";
-import GradientBackground from "@/components/Gradientbackground";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get("window");
+// Internal Imports
+import { getToken } from "@/utils/tokenHelper";
 
-type StatCardProps = {
-  label: string;
-  value: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
+const API_BASE_URL = "https://api.colio.in/api";
+
+// --- Types ---
+type PerformanceData = {
+  profile: {
+    name: string;
+    avatar: string;
+    availabilityStatus: "onWork" | "offWork" | "busy";
+    ratingAverage: number;
+  };
+  earnings: {
+    today: number;
+    week: number;
+    month: number;
+    wallet: number;
+  };
+  requestTrend: {
+    label: string;
+    value: number;
+  }[];
 };
 
-function StatCard({ label, value, subtitle, icon }: StatCardProps) {
-  return (
-    <LinearGradient
-      colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      className="rounded-2xl p-[1px] mr-3 w-64 shadow-sm"
-      style={{ borderRadius: 16 }}
-    >
-      <View className="bg-white/80 rounded-2xl p-4">
-        <View className="flex-row items-start justify-between">
-          <View>
-            <ThemedText className="text-sm text-black/70">{label}</ThemedText>
-            <ThemedText className="text-2xl font-bold text-black mt-2">
-              {value}
-            </ThemedText>
-            {subtitle ? (
-              <ThemedText className="text-xs text-black/60 mt-2">
-                {subtitle}
-              </ThemedText>
-            ) : null}
-          </View>
-          {icon}
-        </View>
-      </View>
-    </LinearGradient>
-  );
-}
+// --- Components ---
 
-function AnimatedBar({ value, max = 100 }: { value: number; max?: number }) {
+const GlassCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
+  <View 
+    style={[
+      {
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.9)',
+        shadowColor: "#E0C3FC",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+      style
+    ]}
+  >
+    {children}
+  </View>
+);
+
+const StatPill = ({ label, value, icon, trend }: any) => (
+  <View className="bg-white p-4 rounded-2xl mr-3 w-[140px] border border-gray-50 shadow-sm">
+    <View className="flex-row justify-between items-start mb-2">
+      <View className="bg-orange-50 p-2 rounded-full">
+        {icon}
+      </View>
+      {trend && <Text className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full">{trend}</Text>}
+    </View>
+    <Text className="text-gray-400 text-xs font-medium mb-1">{label}</Text>
+    <Text className="text-gray-900 text-xl font-bold">{value}</Text>
+  </View>
+);
+
+const AnimatedBar = ({ value, max, label }: any) => {
   const height = useSharedValue(0);
 
   useEffect(() => {
-    const percent = Math.max(0, Math.min(1, value / max));
-    const finalHeight = percent * 120;
-    height.value = withTiming(finalHeight, {
-      duration: 700,
-      easing: Easing.out(Easing.exp),
-    });
+    height.value = withTiming((value / (max || 1)) * 100, { duration: 1000, easing: Easing.out(Easing.exp) });
   }, [value, max]);
 
-  const style = useAnimatedStyle(() => ({
-    height: height.value,
-  }));
+  const style = useAnimatedStyle(() => ({ height: `${height.value}%` }));
 
   return (
-    <View className="items-center">
-      <Animated.View style={[style]} className="w-6 rounded-md bg-[#ff9d76]" />
-      <ThemedText className="text-xs mt-2 text-black/70">{value}</ThemedText>
+    <View className="items-center h-[140px] justify-end w-8 mx-1">
+      <View className="w-2 h-full bg-gray-100 rounded-full absolute bottom-5 overflow-hidden">
+         <Animated.View style={[style, { backgroundColor: '#FF8A65', borderRadius: 10, width: '100%', position: 'absolute', bottom: 0 }]} />
+      </View>
+      <Text className="text-[10px] text-gray-400 font-medium mt-2">{label}</Text>
     </View>
   );
-}
+};
+
+// --- Main Screen ---
 
 export default function PerformanceScreen() {
   const router = useRouter();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const insets = useSafeAreaInsets();
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState<PerformanceData | null>(null);
 
-  const earnings = {
-    today: "₹1,250",
-    week: "₹7,840",
-    month: "₹28,500",
-    wallet: "₹12,400",
+  const fetchPerformance = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await axios.get(`${API_BASE_URL}/consultant/performance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data.success) setData(response.data.data);
+    } catch (error) {
+      console.error("Fetch Error:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const requestTrend = [
-    { label: "Mon", v: 20 },
-    { label: "Tue", v: 50 },
-    { label: "Wed", v: 35 },
-    { label: "Thu", v: 60 },
-    { label: "Fri", v: 45 },
-    { label: "Sat", v: 80 },
-    { label: "Sun", v: 55 },
-  ];
+  useEffect(() => { fetchPerformance(); }, []);
 
-  const reviews = [
-    { id: "1", name: "Asha", text: "Great guidance, very helpful!", rating: 5 },
-    { id: "2", name: "Rahul", text: "Quick & accurate reading.", rating: 4 },
-    { id: "3", name: "Maya", text: "Loved the clarity.", rating: 5 },
-  ];
+  const onRefresh = () => { setRefreshing(true); fetchPerformance(); };
 
-  // Detect scroll offset to highlight dots dynamically
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(scrollX / 260); // approximate card width (64*4 + margin)
-    setActiveIndex(newIndex);
-  };
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
+
+  const maxTrend = useMemo(() => Math.max(...(data?.requestTrend?.map(t => t.value) || [10])), [data]);
+
+  // NOTE: Your current API response (PerformanceData type) ONLY returns 'requestTrend'.
+  // It does NOT return 'completed' vs 'missed' counts. 
+  // Ideally, you should ask backend to send { totalRequests, completedRequests, missedRequests }.
+  // For now, I have removed the hardcoded 85%/15% section to avoid fake data.
+
+  if (loading) return (
+    <View className="flex-1 justify-center items-center bg-[#FDFBF7]">
+      <ActivityIndicator size="large" color="#FF8A65" />
+    </View>
+  );
 
   return (
-    <GradientBackground>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 pt-14 pb-3 shadow-md rounded-b-2xl backdrop-blur-md">
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+    <View className="flex-1 bg-[#FDFBF7]">
+      <StatusBar barStyle="dark-content" />
+      
+      {/* --- Top Gradient Header --- */}
+      <View style={{ height: 280 }} className="absolute w-full rounded-b-[40px] overflow-hidden">
+        <LinearGradient
+          colors={['#FFEEE4', '#FDFBF7']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        />
+        <View className="absolute -top-20 -right-20 w-64 h-64 bg-orange-200/20 rounded-full blur-3xl" />
+        <View className="absolute top-10 -left-10 w-40 h-40 bg-pink-200/20 rounded-full blur-2xl" />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 40, paddingTop: insets.top }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A65" />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* --- Navbar --- */}
+        <View className="px-6 py-4 flex-row justify-between items-center">
+          <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm">
+            <Ionicons name="chevron-back" size={24} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center">
-            <Ionicons name="help-circle-outline" size={22} color="#000" />
-            <ThemedText className="ml-1 font-medium text-black">Assist</ThemedText>
+          <Text className="text-lg font-bold text-gray-800">Performance</Text>
+          <TouchableOpacity className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-sm">
+            <Ionicons name="notifications-outline" size={22} color="#333" />
           </TouchableOpacity>
         </View>
 
-        {/* Profile Header */}
-        <View className="px-4">
-          <LinearGradient
-            colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            className="rounded-2xl p-[1px] mb-4 shadow-sm mt-3"
-            style={{ borderRadius: 16 }}
-          >
-            <View className="bg-white/80 rounded-2xl flex-row items-center justify-between p-4">
-              <View className="flex-row items-center">
-                <View className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ffb085]/50 mr-3">
-                  <Image
-                    source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                  />
-                </View>
-                <View>
-                  <ThemedText className="text-lg font-bold text-black">
-                    Pandit Ravi Sharma
-                  </ThemedText>
-                  <ThemedText className="text-sm text-black/70">
-                    Astrologer • Vedic
-                  </ThemedText>
-                </View>
-              </View>
-              <View className="flex-row items-center">
-                <TouchableOpacity
-                  className="rounded-full mr-2 bg-[#ff9d76] p-2"
-                  onPress={() => router.push("/(dashboard)/history")}
-                >
-                  <Ionicons name="time-outline" size={20} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="rounded-full bg-[#ff9d76] p-2"
-                  onPress={() => router.push("/(dashboard)/support")}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-                </TouchableOpacity>
+        {/* --- Profile Section --- */}
+        <View className="px-6 mt-2 mb-6">
+          <View className="flex-row items-center">
+            <View className="relative">
+              <Image 
+                source={{ uri: data?.profile?.avatar || "https://i.pravatar.cc/150?img=32" }} 
+                className="w-20 h-20 rounded-full border-4 border-white shadow-sm"
+              />
+              <View className={`absolute bottom-0 right-0 w-6 h-6 rounded-full border-2 border-white items-center justify-center ${data?.profile?.availabilityStatus === 'onWork' ? 'bg-green-500' : 'bg-gray-400'}`}>
+                {data?.profile?.availabilityStatus === 'onWork' && <Ionicons name="checkmark" size={14} color="white" />}
               </View>
             </View>
-          </LinearGradient>
-        </View>
-
-        {/* Earnings Cards */}
-        <View className="px-4">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            className="mb-2"
-          >
-            <View className="flex-row items-stretch">
-              <StatCard
-                label="Today's Earnings"
-                value={earnings.today}
-                subtitle="Calls & Chats"
-                icon={<Ionicons name="cash-outline" size={28} color="#10B981" />}
-              />
-              <StatCard
-                label="This Week"
-                value={earnings.week}
-                subtitle="vs last week +12%"
-                icon={<Ionicons name="bar-chart-outline" size={28} color="#06B6D4" />}
-              />
-              <StatCard
-                label="Wallet"
-                value={earnings.wallet}
-                subtitle="Withdrawable"
-                icon={<Ionicons name="wallet-outline" size={28} color="#F59E0B" />}
-              />
+            <View className="ml-4 flex-1">
+              <Text className="text-2xl font-bold text-gray-900">{data?.profile?.name}</Text>
+              <View className="flex-row items-center mt-1">
+                <View className="bg-orange-100 px-2 py-0.5 rounded-md flex-row items-center">
+                   <Ionicons name="star" size={12} color="#F59E0B" />
+                   <Text className="text-xs font-bold text-orange-700 ml-1">{data?.profile?.ratingAverage?.toFixed(1) || "New"}</Text>
+                </View>
+                <Text className="text-gray-400 text-xs ml-2">Verified Expert</Text>
+              </View>
             </View>
-          </ScrollView>
-
-          {/* Dots Indicator */}
-          <View className="flex-row justify-center items-center mt-2 mb-4">
-            {[0, 1, 2].map((i) => (
-              <View
-                key={i}
-                className={`w-2 h-2 mx-1 rounded-full ${
-                  activeIndex === i ? "bg-black/80 scale-110" : "bg-black/30"
-                }`}
-              />
-            ))}
           </View>
         </View>
 
-        {/* Requests Trend */}
-        <View className="px-4">
-          <LinearGradient
-            colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            className="rounded-2xl p-[1px] mb-4 shadow-sm"
-            style={{ borderRadius: 16 }}
-          >
-            <View className="bg-white/80 rounded-2xl p-4">
-              <View className="flex-row items-center justify-between mb-3">
-                <ThemedText className="text-base font-semibold text-black">
-                  Requests Trend
-                </ThemedText>
-                <ThemedText className="text-sm text-black/70">Last 7 days</ThemedText>
-              </View>
+        {/* --- Earnings Slider --- */}
+        <View className="mb-8">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
+            <StatPill 
+              label="Today" 
+              value={formatCurrency(data?.earnings?.today || 0)} 
+              icon={<Ionicons name="sunny-outline" size={20} color="#F97316" />}
+              trend="+12%"
+            />
+            <StatPill 
+              label="This Week" 
+              value={formatCurrency(data?.earnings?.week || 0)} 
+              icon={<Ionicons name="calendar-outline" size={20} color="#8B5CF6" />}
+            />
+            <StatPill 
+              label="Wallet" 
+              value={formatCurrency(data?.earnings?.wallet || 0)} 
+              icon={<Ionicons name="wallet-outline" size={20} color="#10B981" />}
+            />
+          </ScrollView>
+        </View>
 
-              <View className="flex-row items-end justify-between px-2 py-3">
-                {requestTrend.map((d, i) => (
-                  <View key={i} className="items-center" style={{ width: (width - 64) / 8 }}>
-                    <AnimatedBar value={d.v} max={80} />
-                    <ThemedText className="text-xs mt-2 text-black/70">{d.label}</ThemedText>
-                  </View>
-                ))}
-              </View>
-
-              <View className="flex-row items-center justify-between mt-4">
+        {/* --- Main Dashboard Card --- */}
+        <View className="px-6">
+          <GlassCard style={{ padding: 20, marginBottom: 24 }}>
+             <View className="flex-row justify-between items-center mb-6">
                 <View>
-                  <ThemedText className="font-semibold text-black">Total Requests</ThemedText>
-                  <ThemedText className="text-sm text-black/60">
-                    Accepted 78% • Missed 5%
-                  </ThemedText>
+                   <Text className="text-lg font-bold text-gray-800">Session Activity</Text>
+                   <Text className="text-xs text-gray-400">Weekly Overview</Text>
                 </View>
-                <TouchableOpacity className="px-4 py-2 rounded-full bg-[#ff9d76]">
-                  <ThemedText className="text-white font-semibold">Improve Accept</ThemedText>
+                <TouchableOpacity className="bg-orange-50 px-3 py-1.5 rounded-full">
+                   <Text className="text-orange-600 text-xs font-bold">See Report</Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-          </LinearGradient>
+             </View>
+             
+             {/* Chart */}
+             <View className="flex-row justify-between items-end h-[160px] pb-2">
+                {data?.requestTrend?.map((item, i) => (
+                   <AnimatedBar key={i} value={item.value} max={maxTrend} label={item.label} />
+                ))}
+             </View>
+             
+             {/* REMOVED: The "85% Completed / 15% Missed" section.
+                 REASON: Your current API response (PerformanceData) does NOT provide these numbers.
+                 It was hardcoded text. If you want this back, your backend needs to send:
+                 { totalRequests: 100, completed: 85, missed: 15 } inside the API response.
+             */}
+          </GlassCard>
         </View>
 
-        {/* Ratings & Reviews */}
-        <View className="px-4">
-          <LinearGradient
-            colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            className="rounded-2xl p-[1px] mb-4 shadow-sm"
-            style={{ borderRadius: 16 }}
-          >
-            <View className="bg-white/80 rounded-2xl p-4">
-              <View className="flex-row items-center justify-between mb-2">
-                <ThemedText className="text-base font-semibold text-black">
-                  Ratings & Reviews
-                </ThemedText>
-                <View className="flex-row items-center">
-                  <Ionicons name="star" size={18} color="#F59E0B" />
-                  <ThemedText className="ml-2 font-semibold text-black">4.8</ThemedText>
-                </View>
-              </View>
-
-              <FlatList
-                data={reviews}
-                keyExtractor={(it) => it.id}
-                renderItem={({ item }) => (
-                  <View className="py-3 border-b border-gray-200">
-                    <View className="flex-row items-center justify-between">
-                      <ThemedText className="font-medium text-black">{item.name}</ThemedText>
-                      <View className="flex-row items-center">
-                        <Ionicons name="star" size={14} color="#F59E0B" />
-                        <ThemedText className="ml-1 text-sm text-black">{item.rating}</ThemedText>
-                      </View>
-                    </View>
-                    <ThemedText className="text-sm text-black/70 mt-1">{item.text}</ThemedText>
-                  </View>
-                )}
-                scrollEnabled={false}
-              />
-            </View>
-          </LinearGradient>
-        </View>
-
-        {/* Availability */}
-        <View className="px-4 mb-10">
-          <LinearGradient
-            colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            className="rounded-2xl p-[1px] shadow-sm"
-            style={{ borderRadius: 16 }}
-          >
-            <View className="bg-white/80 rounded-2xl p-4">
-              <View className="flex-row items-center justify-between mb-3">
-                <ThemedText className="text-base font-semibold text-black">
-                  Availability
-                </ThemedText>
-                <ThemedText className="text-sm text-black/70">Today</ThemedText>
-              </View>
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <ThemedText className="font-semibold text-black">ON-DUTY</ThemedText>
-                  <ThemedText className="text-sm text-black/70">08:00 - 20:00</ThemedText>
-                </View>
-                <View className="flex-row items-center">
-                  <TouchableOpacity className="px-4 py-2 rounded-full mr-3 bg-green-500">
-                    <ThemedText className="text-white">Go Online</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="px-4 py-2 rounded-full border border-gray-300"
-                    onPress={() => router.push("/(dashboard)/performance")}
-                  >
-                    <ThemedText className="text-black">Settings</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
       </ScrollView>
-    </GradientBackground>
+    </View>
   );
 }
