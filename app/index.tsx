@@ -1,6 +1,7 @@
 // app/index.tsx
 import GradientBackground from "@/components/Gradientbackground";
 import { useAuth } from "@/context/AuthContext";
+import firebase from '@react-native-firebase/app';
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -27,6 +28,20 @@ export default function IndexScreen() {
        router.replace("/(tabs)/home");
      }
    }, [isAuthLoading, isAuthenticated]);
+
+  useEffect(() => {
+    console.log('=== FIREBASE DEBUG (EXPERT APP) ===');
+    console.log('Firebase apps length:', firebase.apps.length);
+
+    if (firebase.apps.length > 0) {
+      console.log('✅ Firebase app exists');
+      console.log('App name:', firebase.app().name);
+      console.log('Project ID:', firebase.app().options.projectId);
+    } else {
+      console.log('❌ No Firebase app initialized');
+    }
+    console.log('====================================');
+  }, []);
 
   useEffect(() => {
     // Initial fade in
