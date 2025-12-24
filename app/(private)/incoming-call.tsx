@@ -42,6 +42,7 @@ export default function IncomingCallScreen() {
   const customerAvatar = params.customerAvatar as string;
   const channelName = params.channelName as string;
   const customerId = params.customerId as string; // ✅ Added for chat bubble alignment
+  const rtcTokenFromNotification = params.rtcToken as string; // ✅ Token from notification
 
   // Animation Values
   const pulseAnim = useRef(new Animated.Value(1)).current;

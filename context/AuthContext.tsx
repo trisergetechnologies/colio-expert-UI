@@ -1,9 +1,9 @@
 "use client";
 
+import notificationService from '@/services/notificationService';
 import { getToken, removeToken, setToken } from "@/utils/tokenHelper";
 import axios from "axios";
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
-
 // ========== CONSULTANT USER TYPE ==========
 export type ConsultantUser = {
   userId: string;
@@ -96,19 +96,23 @@ export const AuthProvider = ({ children }: Props) => {
         if (!token) {
           setUser(null);
           setIsAuthLoading(false);
-          return;
+          return () => {
+              notificationService.removeListeners();
+          };
         }
 
         const res = await axios.get(`${API_BASE_URL}/user/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (res.data?.success && res.data.data) {
-          setUser(res.data.data);
-        } else {
-          await removeToken();
-          setUser(null);
-        }
+if (res.data?.success && res.data.data) {
+  setUser(res.data.data);
+  // ✅ Initialize notifications after profile loaded
+  await initializeNotifications();
+} else {
+  await removeToken();
+  setUser(null);
+}
       } catch (err) {
         console.error("Init consultant auth error:", err);
         await removeToken();
@@ -122,15 +126,18 @@ export const AuthProvider = ({ children }: Props) => {
   }, []);
 
   // ✅ SAVE AUTH DATA AFTER LOGIN/REGISTER
-  const saveAuthData = async (userData: any) => {
-    try {
-      const token = userData?.accessToken;
-      if (token) await setToken(token);
-      setUser(userData);
-    } catch (err) {
-      console.error("Error saving consultant auth data:", err);
-    }
-  };
+const saveAuthData = async (userData: any) => {
+  try {
+    const token = userData?.accessToken;
+    if (token) await setToken(token);
+    setUser(userData);
+    
+    // ✅ Initialize notifications after login
+    await initializeNotifications();
+  } catch (err) {
+    console.error("Error saving consultant auth data:", err);
+  }
+};
 
   // ✅ REFRESH USER FROM BACKEND
   const refreshUser = async () => {
@@ -149,17 +156,32 @@ export const AuthProvider = ({ children }: Props) => {
   };
 
   // ✅ LOGOUT
-  const logout = async () => {
-    try {
-      setIsAuthLoading(true);
-      await removeToken();
-      setUser(null);
-    } catch (err) {
-      console.error("Consultant logout error:", err);
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
+const logout = async () => {
+  try {
+    setIsAuthLoading(true);
+    
+    // ✅ Remove FCM token and cleanup listeners
+    await notificationService.removeTokenFromBackend();
+    notificationService.removeListeners();
+    
+    await removeToken();
+    setUser(null);
+  } catch (err) {
+    console.error("Consultant logout error:", err);
+  } finally {
+    setIsAuthLoading(false);
+  }
+};
+
+  // ✅ Initialize Firebase notifications
+const initializeNotifications = async () => {
+  try {
+    console.log('[Expert] 🔔 Initializing notifications...');
+    await notificationService.initialize();
+  } catch (error) {
+    console.error('[Expert] ❌ Error initializing notifications:', error);
+  }
+};
 
   const value: AuthContextType = {
     user,

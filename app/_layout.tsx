@@ -9,7 +9,7 @@ import "../global.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CallProvider } from "@/context/CallContext"; // ✅ Add this
 import { useIncomingCallPolling } from '@/hooks/useIncomingCallPolling';
-import { registerForPushNotificationsAsync } from '@/utils/notificationHelper';
+// import { registerForPushNotificationsAsync } from '@/utils/notificationHelper';
 import {
   Pacifico_400Regular,
   useFonts,
@@ -32,8 +32,8 @@ export default function RootLayout() {
 
     console.log('[Consultant] App started');
     
-    registerForPushNotificationsAsync();
-    startPolling(); // ✅ Start polling when app loads
+    // registerForPushNotificationsAsync();
+    // startPolling();
 
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
@@ -74,7 +74,7 @@ export default function RootLayout() {
     );
 
     return () => {
-      stopPolling();
+      // stopPolling();
       notificationListener.remove();
       responseListener.remove();
     };
