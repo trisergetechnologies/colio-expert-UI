@@ -2,7 +2,6 @@
 import { CALL_EMOJIS, POLLING_INTERVALS } from '@/constants/chatConstants';
 import { useAuth } from '@/context/AuthContext';
 import { useCallContext } from "@/context/CallContext";
-import { useIncomingCallPolling } from "@/hooks/useIncomingCallPolling";
 import {
   getInCallMessages,
   Message,
@@ -57,7 +56,7 @@ export default function ConsultantCallScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { endCall } = useCallContext();
-  const { resetPolling } = useIncomingCallPolling();
+  // const { resetPolling } = useIncomingCallPolling();
 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
@@ -387,8 +386,8 @@ export default function ConsultantCallScreen() {
     }
   };
 
-  const isOwnMessage = (message: Message): boolean => {
-    const currentUserId = user?.userId?.toString() || user?._id?.toString() || user?.id?.toString() || '';
+  const isOwnMessage = (message: any): boolean => {
+    const currentUserId = user?.userId?.toString();
     const senderId = typeof message.sender === 'object'
       ? (message.sender._id?.toString() || '')
       : message.sender?.toString() || '';
@@ -437,11 +436,7 @@ export default function ConsultantCallScreen() {
       await cleanup();
       endCall();
 
-      setTimeout(() => {
-        resetPolling();
-      }, 500);
-
-      router.back();
+      router.push('/(tabs)/home');
     }
   };
 
