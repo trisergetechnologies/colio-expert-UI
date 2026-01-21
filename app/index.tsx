@@ -121,8 +121,8 @@ export default function IndexScreen() {
 
           <Text className="text-xs text-black mt-4 text-center leading-5">
             By tapping you agree to our{" "}
-            <Text className="text-green-600 underline">Terms of Use</Text> and{" "}
-            <Text className="text-green-600">Privacy Policy</Text>.{"\n"}
+            <Text onPress={()=> router.push('/terms')} className="text-green-600 underline">Terms of Use</Text> and{" "}
+            <Text onPress={()=> router.push('/privacy')} className="text-green-600">Privacy Policy</Text>.{"\n"}
             All your details are protected, safe, and secure.
           </Text>
         </View>

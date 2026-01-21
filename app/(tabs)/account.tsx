@@ -37,30 +37,21 @@ export default function AccountScreen() {
     }
   };
 
-  const showToast = (msg: string) => {
-    if (Platform.OS === "android") {
-      ToastAndroid.showWithGravity(
-        msg,
-        ToastAndroid.SHORT,
-        ToastAndroid.TOP
-      );
-    } else {
-      Alert.alert(msg);
-    }
-  };
+
 
   const moreOptions = [
-    { id: "11", label: "Chat", icon: "analytics-outline", path: "../(private)/chat" },
-    { id: "4", label: "Performance", icon: "analytics-outline", path: "../(dashboard)/performance" },
-    { id: "1", label: "Wallet", icon: "wallet", path: "../(tabs)/wallet" },
-    { id: "2", label: "Activity", icon: "time-outline", path: "../(private)/history" },
-    { id: "3", label: "Referrals", icon: "people-outline", path: "../(dashboard)/referral" },
+    { id: "11", label: "Chat", icon: "chatbubbles-outline", path: "../(private)/chat" },
+    // { id: "4", label: "Performance", icon: "analytics-outline", path: "../(dashboard)/performance" },
+    { id: "12", label: "Settlement", icon: "cash-outline", path: "../(dashboard)/settlement" },
+    // { id: "1", label: "Wallet", icon: "wallet", path: "../(tabs)/wallet" },
+    // { id: "2", label: "Activity", icon: "time-outline", path: "../(private)/history" },
+    // { id: "3", label: "Referrals", icon: "people-outline", path: "../(dashboard)/referral" },
     { id: "7", label: "About Us", icon: "information-circle-outline", path: "../(dashboard)/AboutUs" },
     { id: "8", label: "Quick-Assistance", icon: "headset-outline", path: "../(dashboard)/support" },
-    { id: "5", label: "Terms & Conditions", icon: "document-text-outline" },
-    { id: "6", label: "Privacy Policy", icon: "lock-closed-outline" },
-    { id: "9", label: "Logout", icon: "log-out-outline" },
-    { id: "10", label: "Delete Account", icon: "trash-outline", isDelete: true },
+    { id: "5", label: "Terms & Conditions", icon: "document-text-outline", path: "../terms" },
+    { id: "6", label: "Privacy Policy", icon: "lock-closed-outline", path: "../privacy" },
+    { id: "9", label: "Logout", icon: "log-out-outline", isLogout: true },
+    // { id: "10", label: "Delete Account", icon: "trash-outline", isDelete: true },
   ];
 
   return (
@@ -72,10 +63,10 @@ export default function AccountScreen() {
                    <Ionicons name="arrow-back" size={24} color="#000" />
                  </TouchableOpacity>
        
-                 <TouchableOpacity className="flex-row items-center">
+                 {/* <TouchableOpacity className="flex-row items-center">
                    <Ionicons name="help-circle-outline" size={22} color="#000" />
                    <Text className="ml-1 font-medium text-black">Assist</Text>
-                 </TouchableOpacity>
+                 </TouchableOpacity> */}
                </View>
 
 
@@ -87,12 +78,12 @@ export default function AccountScreen() {
                 source={{ uri: user.avatar }}
                 className="w-28 h-28 rounded-full border-4 border-pink-600"
               />
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={handleImagePick}
                 className="absolute bottom-1 right-1 bg-white p-1 rounded-full"
               >
                 <Ionicons name="camera" size={18} color="#22c55e" />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           ) : (
             <TouchableOpacity
@@ -105,40 +96,6 @@ export default function AccountScreen() {
 
           <Text className="text-black text-xl font-bold mt-3">{user?.name}</Text>
           <Text className="text-black-200 mt-1">{user?.phone}</Text>
-
-          {/* Edit Profile */}
-          <TouchableOpacity
-            onPress={() => router.push("/(dashboard)/editProfile")}
-            className="mt-2 flex-row items-center"
-          >
-            <Ionicons name="create-outline" size={18} color="#db2777" />
-            <Text className="text-black ml-1">Edit Profile</Text>
-          </TouchableOpacity>
-
-          {/* Referral Code */}
-          <LinearGradient
-            colors={["#fffaf3", "#ffd6a5"]}
-            start={{ x: 1, y: 1 }}
-            end={{ x: 1, y: 1 }}
-            className="rounded-xl flex-row justify-between mt-3 items-center shadow-sm"
-            style={{ borderRadius: 16 }}
-          >
-            <View className="flex-row items-center px-4 py-2 rounded-lg">
-              <Text className="text-black font-semibold">{user?.referralCode ? user.referralCode : 'NA'}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  showToast("Referral Code Copied!");
-                }}
-              >
-                <Ionicons
-                  name="copy-outline"
-                  size={18}
-                  color="#db2777"
-                  className="ml-2"
-                />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
         </View>
 
         {/* Quick Actions */}
@@ -151,7 +108,7 @@ export default function AccountScreen() {
             style={{ borderRadius: 16 }}
             >
           <TouchableOpacity
-            onPress={() => router.push("/")}
+            onPress={() => router.push("/(tabs)/sessions")}
             className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
             <Ionicons name="call-outline" size={24} color="#db2777" />
@@ -166,7 +123,7 @@ export default function AccountScreen() {
             style={{ borderRadius: 16 }}
             >
           <TouchableOpacity
-            onPress={() => router.push("/")}
+            onPress={() => router.push("/(private)/chat")}
             className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
             <Ionicons name="chatbubble-outline" size={24} color="#db2777" />
@@ -181,7 +138,7 @@ export default function AccountScreen() {
             style={{ borderRadius: 16 }}
             >
           <TouchableOpacity
-            onPress={() => router.push("/")}
+            onPress={() => router.push("/(tabs)/sessions")}
             className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
             <Ionicons name="videocam-outline" size={24} color="#db2777" />
@@ -200,9 +157,6 @@ export default function AccountScreen() {
                 if(item.label == 'Logout'){
                   logout();
                 }
-                else if(item.isDelete){
-                  console.log("Delete pressed");
-                }
                 else{
                   router.push(item.path as any)
                 }
@@ -213,11 +167,11 @@ export default function AccountScreen() {
               <Ionicons
                 name={item.icon as any}
                 size={22}
-                color={item.isDelete ? "red" : "black"}
+                color={item.isLogout ? "red" : "black"}
               />
               <Text
                 className={`ml-4 text-base font-medium ${
-                  item.isDelete ? "text-red-500 font-semibold" : "text-black"
+                  item.isLogout ? "text-red-500 font-semibold" : "text-black"
                 }`}
               >
                 {item.label}
@@ -229,7 +183,7 @@ export default function AccountScreen() {
 
         {/* Footer */}
         <View className="items-center pt-4 mb-4">
-          <Text className="text-pink-600 text-sm"> Colio.V-1.0.0</Text>
+          <Text className="text-pink-600 text-sm"> Colio</Text>
         </View>
       </View>
     </GradientBackground>

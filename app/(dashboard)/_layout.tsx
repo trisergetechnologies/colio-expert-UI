@@ -46,18 +46,10 @@ export default function dashboardLayout() {
         headerTitleAlign: "center",
       }}
     >
-
       <Stack.Screen
-        name="history"
+        name="settlement"
         options={{
-          title: "History",
-          
-        }}
-      />
-      <Stack.Screen
-        name="performance"
-        options={{
-          title: "Performance",
+          title: "Settlements",
            headerShown: false,
         }}
       />
@@ -66,20 +58,6 @@ export default function dashboardLayout() {
         options={{
           title: "Support",
            headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="referral"
-        options={{
-          title: "Referral",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="editProfile"
-        options={{
-          title: "Edit Profile",
-          headerShown: false,
         }}
       />
       <Stack.Screen

@@ -53,18 +53,17 @@ export default function PrivateLayout() {
       }}
     >
 
-      {/* Add Notification screen */}
       <Stack.Screen
-        name="notification"
+        name="call"
         options={{
-          title: "Notifications",
+          title: "Call",
         }}
       />
 
       <Stack.Screen
-        name="history"
+        name="incoming-call"
         options={{
-          title: "History",
+          title: "Incoming Call",
         }}
       />
     </Stack>

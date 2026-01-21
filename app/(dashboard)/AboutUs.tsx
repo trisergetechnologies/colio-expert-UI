@@ -61,7 +61,7 @@ export default function AboutUsScreen() {
     <GradientBackground>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 70 }}>
         {/* Header */}
-        <View className="flex-row items-center justify-start px-4 pt-14 pb-3 shadow-md rounded-b-2xl backdrop-blur-md">
+        <View className="flex-row items-center justify-start px-4 pt-14 pb-3 rounded-b-2xl">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>

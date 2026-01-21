@@ -249,7 +249,7 @@ export default function ConsultantLoginScreen() {
                   color="#e9e7ec"
                 />
               }
-              placeholder="you@example.com or 9999999999"
+              placeholder="Email"
               value={identifier}
               onChange={setIdentifier}
               errorMessage={errors.identifier}

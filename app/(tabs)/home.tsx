@@ -179,23 +179,21 @@ const formatLastSeen = (date?: string) => {
   const scrollX = useRef(new RNAnimated.Value(0)).current;
 return (
   <GradientBackground>
-    
+    <View className="flex-1">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 pt-12">
+        <ThemedText
+          style={{
+            fontFamily: "Pacifico_400Regular",
+          }}
+          className="text-4xl text-white"
+        >
+          Colio
+        </ThemedText>
 
-
-      <View className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-5 pt-12">
-          <ThemedText
-            style={{
-              fontFamily: "Pacifico_400Regular",
-            }}
-            className="text-4xl text-white"
-          >
-            Colio
-          </ThemedText>
-
-          <View className="flex-row items-center space-x-3">
-            {/* Online Toggle */}
+        <View className="flex-row items-center space-x-3">
+          {/* Online Toggle */}
+          {user?.consultantProfile?.availabilityStatus !== "busy" ? (
             <TouchableOpacity
               onPress={handleAvailability}
               disabled={disable}
@@ -203,153 +201,189 @@ return (
               className="flex-row items-center mr-3"
             >
               <View
-                className={`w-11 h-6 rounded-full px-[2px] flex-row items-center ${isOnDuty ? "bg-green-500" : "bg-black"
-                  }`}
+                className={`w-11 h-6 rounded-full px-[2px] flex-row items-center ${
+                  isOnDuty ? "bg-green-500" : "bg-black"
+                }`}
               >
                 <View
-                  className={`w-5 h-5 rounded-full bg-white transition-all duration-300 ${isOnDuty ? "translate-x-5" : "translate-x-0"
-                    }`}
+                  className={`w-5 h-5 rounded-full bg-white transition-all duration-300 ${
+                    isOnDuty ? "translate-x-5" : "translate-x-0"
+                  }`}
                 />
               </View>
               <ThemedText
-                className={`ml-2 text-sm font-semibold ${isOnDuty ? "text-green-500" : "text-gray-300"
-                  }`}
+                className={`ml-2 text-sm font-semibold ${
+                  isOnDuty ? "text-green-500" : "text-gray-300"
+                }`}
               >
                 {isOnDuty ? "Online" : "Offline"}
               </ThemedText>
             </TouchableOpacity>
+          ) : (
+            // ================= BUSY STATE =================
+            <View className="flex-row items-center mr-3">
+              {/* Glowing orange dot */}
+              <View className="w-3 h-3 rounded-full bg-orange-500 shadow-orange-500 shadow-lg mr-2" />
 
-            {/* Notification */}
-            <TouchableOpacity
+              <ThemedText className="text-sm font-semibold text-orange-400">
+                Busy
+              </ThemedText>
+            </View>
+          )}
+
+          {/* Notification */}
+          {/* <TouchableOpacity
               onPress={() => router.push("/(private)/notification")}
               className="bg-black rounded-full p-1"
             >
               <Ionicons name="notifications-outline" size={20} color="#FF00FF" />
-            </TouchableOpacity>
-          </View>
+            </TouchableOpacity> */}
         </View>
-
-        <View className="h-[1px] bg-white/30 w-full mt-3" />
-
-        {/* Body */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          className="flex-1 mt-4"
-          contentContainerStyle={{ paddingBottom: 80 }}
-        >
-          {/* Greeting */}
-          <Animated.View entering={FadeInDown.delay(200).springify()} className="items-center">
-            <Image
-              src={user?.avatar ? user.avatar : require("../../assets/images/professional.jpg")}
-              className="w-36 h-36 rounded-full border-4 border-white/30 shadow-lg"
-            />
-            <ThemedText className="text-2xl font-extrabold text-white mt-5">
-              {greeting}, {user?.name}
-            </ThemedText>
-            <ThemedText className="mt-3 text-center text-base text-white/80 px-10">
-              Stay online to connect instantly with users looking for a real conversation.
-            </ThemedText>
-          </Animated.View>
-
-          {/* Trending Topics */}
-          <Animated.View entering={FadeInUp.delay(300).springify()} className="mt-8 px-5">
-            <ThemedText className="text-lg font-semibold text-white mb-3">
-              Trending Topics 🔥
-            </ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-              {trendingTopics.map((topic, index) => (
-                <TouchableOpacity
-                  key={index}
-                  className="bg-white/20 px-4 py-2 mr-3 rounded-full border border-white/30"
-                >
-                  <ThemedText className="text-white font-medium text-sm">{topic}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </Animated.View>
-
-          {/* Recent Connections */}
-          <Animated.View entering={FadeInUp.delay(400).springify()} className="mt-8 px-5">
-            <ThemedText className="text-lg font-semibold text-white mb-3">
-              Recent Connections 🪄
-            </ThemedText>
-            {!loadingRecent && recentConnections.length === 0 && (
-  <ThemedText className="text-white/70 text-center mt-4">
-    No recent connections yet
-  </ThemedText>
-)}
-
-
-            <FlatList
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  data={recentConnections}
-  keyExtractor={(item) => item.id}
-  contentContainerStyle={{ paddingRight: 20 }}
-  renderItem={({ item }) => (
-    <TouchableOpacity activeOpacity={0.9}>
-      <LinearGradient
-        colors={["#fffaf3", "#ffd6a5", "#ff9d76"]}
-        className="rounded-2xl p-[1px] mr-4 w-44 shadow-lg"
-        style={{ borderRadius: 16 }}
-      >
-        <View className="bg-white/80 rounded-2xl items-center py-4 shadow-md">
-          <View className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ffb085]/60 shadow-lg">
-            <Image
-              source={{
-                uri:
-                  item.avatar ||
-                  "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-              }}
-              className="w-full h-full"
-            />
-          </View>
-
-          <ThemedText className="text-black font-semibold text-sm mt-3">
-            {item.name}
-          </ThemedText>
-
-          <ThemedText className="text-black/60 text-xs mt-1">
-            {formatLastSeen(item.lastSeen)}
-          </ThemedText>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  )}
-/>
-</Animated.View>
-
-         
-
-          {/* Colio Moments */}
-          <Animated.View entering={FadeInUp.delay(500).springify()} className="mt-8 px-5">
-            <ThemedText className="text-lg font-semibold text-white mb-3">
-              Colio Moments ✨
-            </ThemedText>
-            <View className="flex-row flex-wrap justify-between">
-              {statsCards.map((stat) => (
-                <LinearGradient
-                  key={stat.id}
-                  colors={["#fffaf3", "#ffd6a5", "#ff9d76"]}
-                  className="rounded-2xl p-[1px] w-[47%] mb-3"
-                  style={{ borderRadius: 16 }}
-                >
-                  <View className="bg-white/80 rounded-2xl p-4 items-start">
-                    <Ionicons name={stat.icon as any} size={22} color="#ff9d76" />
-                    <ThemedText className="text-lg font-bold text-black mt-2">
-                      {stat.value}
-                    </ThemedText>
-                    <ThemedText className="text-sm text-black/60 mt-1">
-                      {stat.label}
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-              ))}
-            </View>
-          </Animated.View>
-        </ScrollView>
-
       </View>
-    </GradientBackground>
-  );
+
+      <View className="h-[1px] bg-white/30 w-full mt-3" />
+
+      {/* Body */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1 mt-4"
+        contentContainerStyle={{ paddingBottom: 80 }}
+      >
+        {/* Greeting */}
+        <Animated.View
+          entering={FadeInDown.delay(200).springify()}
+          className="items-center"
+        >
+          <Image
+            src={
+              user?.avatar
+                ? user.avatar
+                : require("../../assets/images/professional.jpg")
+            }
+            className="w-36 h-36 rounded-full border-4 border-white/30 shadow-lg"
+          />
+          <ThemedText className="text-2xl font-extrabold text-white mt-5">
+            {greeting}, {user?.name}
+          </ThemedText>
+          <ThemedText className="mt-3 text-center text-base text-white/80 px-10">
+            Stay online to connect instantly with users looking for a real
+            conversation.
+          </ThemedText>
+        </Animated.View>
+
+        {/* Trending Topics */}
+        <Animated.View
+          entering={FadeInUp.delay(300).springify()}
+          className="mt-8 px-5"
+        >
+          <ThemedText className="text-lg font-semibold text-white mb-3">
+            Trending Topics 🔥
+          </ThemedText>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-row"
+          >
+            {trendingTopics.map((topic, index) => (
+              <TouchableOpacity
+                key={index}
+                className="bg-white/20 px-4 py-2 mr-3 rounded-full border border-white/30"
+              >
+                <ThemedText className="text-white font-medium text-sm">
+                  {topic}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+
+        {/* Consultant Readiness */}
+        <Animated.View
+          entering={FadeInUp.delay(400).springify()}
+          className="mt-8 px-5"
+        >
+          <ThemedText className="text-lg font-semibold text-white mb-3">
+            Consultant Readiness
+          </ThemedText>
+
+          <LinearGradient
+            colors={["#fffaf3", "#ffd6a5", "#ff9d76"]}
+            className="rounded-2xl p-[1px]"
+            style={{ borderRadius: 16 }}
+          >
+            <View className="bg-white/85 rounded-2xl p-5">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="pulse-outline" size={22} color="#ff9d76" />
+                <ThemedText className="ml-2 font-semibold text-black">
+                  You’re Ready to Receive Requests
+                </ThemedText>
+              </View>
+
+              <ThemedText className="text-black/70 text-sm leading-5">
+                Keep your availability active and respond promptly to build
+                trust, improve visibility, and increase earnings on Colio.
+              </ThemedText>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        {/*  How You Earn on Colio */}
+        <Animated.View
+          entering={FadeInUp.delay(500).springify()}
+          className="mt-8 px-5"
+        >
+          <ThemedText className="text-lg font-semibold text-white mb-3">
+            Your Growth on Colio
+          </ThemedText>
+
+          <View className="flex-row flex-wrap justify-between">
+            {[
+              {
+                id: "1",
+                icon: "call-outline",
+                title: "Calls & Video",
+                desc: "Earn per minute for every session you accept",
+              },
+              {
+                id: "2",
+                icon: "chatbubble-ellipses-outline",
+                title: "Chats",
+                desc: "Respond quickly to increase repeat users",
+              },
+              {
+                id: "3",
+                icon: "checkmark-circle-outline",
+                title: "Availability",
+                desc: "Staying online increases request visibility",
+              },
+              {
+                id: "4",
+                icon: "wallet-outline",
+                title: "Weekly Payouts",
+                desc: "Secure, automated settlements",
+              },
+            ].map((item) => (
+              <LinearGradient
+                key={item.id}
+                colors={["#fffaf3", "#ffd6a5", "#ff9d76"]}
+                className="rounded-2xl p-[1px] w-[47%] mb-3"
+                style={{ borderRadius: 16 }}
+              >
+                <View className="bg-white/85 rounded-2xl p-4">
+                  <Ionicons name={item.icon as any} size={22} color="#ff9d76" />
+                  <ThemedText className="text-sm font-semibold text-black mt-2">
+                    {item.title}
+                  </ThemedText>
+                  <ThemedText className="text-xs text-black/60 mt-1">
+                    {item.desc}
+                  </ThemedText>
+                </View>
+              </LinearGradient>
+            ))}
+          </View>
+        </Animated.View>
+      </ScrollView>
+    </View>
+  </GradientBackground>
+);
 }
