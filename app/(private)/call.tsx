@@ -1,4 +1,5 @@
 // app/call.tsx (Consultant App)
+import { CallEndedAlert } from '@/components/CallAlert';
 import { CALL_EMOJIS, POLLING_INTERVALS } from '@/constants/chatConstants';
 import { useAuth } from '@/context/AuthContext';
 import { useCallContext } from "@/context/CallContext";
@@ -64,6 +65,7 @@ export default function ConsultantCallScreen() {
   const [remoteUid, setRemoteUid] = useState<number>(0);
   const [duration, setDuration] = useState(0);
   const [isCustomerConnected, setIsCustomerConnected] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
 
   // Chat states
   const [showChat, setShowChat] = useState(false);
@@ -77,6 +79,7 @@ export default function ConsultantCallScreen() {
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
 
   // Refs
+  const sessionPollRef = useRef<NodeJS.Timeout | null>(null);
   const engineRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const hasCleanedUpRef = useRef(false);
@@ -148,6 +151,7 @@ export default function ConsultantCallScreen() {
     // ✅ Start BOTH polling immediately when call starts
     startEmojiPolling();
     startChatPolling();
+    startSessionPolling();
 
     // Load initial chat messages
     fetchChatMessages();
@@ -356,6 +360,53 @@ export default function ConsultantCallScreen() {
     }, POLLING_INTERVALS.IN_CALL_MESSAGES);
   };
 
+  // ============ SESSION STATUS POLLING (for auto-end detection) ============
+const startSessionPolling = () => {
+  if (sessionPollRef.current) return;
+
+  console.log('[Consultant] 📊 Starting session status polling');
+
+  sessionPollRef.current = setInterval(async () => {
+    try {
+      const jwt = await getToken();
+      const response = await axios.get(
+        `${API_BASE_URL}/session/${sessionId}/status`,
+        { headers: { Authorization: `Bearer ${jwt}` } }
+      );
+
+      if (response.data.success) {
+        const { status, autoEnded, endReason } = response.data.data;
+
+        if (status === 'ended') {
+          console.log('[Consultant] 📞 Session ended externally:', { autoEnded, endReason });
+          
+          // Stop polling
+          if (sessionPollRef.current) {
+            clearInterval(sessionPollRef.current);
+            sessionPollRef.current = null;
+          }
+
+          // Show appropriate message
+          const message = autoEnded && endReason === 'insufficient_balance'
+            ? 'Call ended - Customer balance depleted'
+            : 'Call ended by customer';
+
+          // Alert.alert('Call Ended', message, [
+          //   { text: 'OK', onPress: () => {
+          //     cleanup();
+          //     endCall();
+          //     router.replace('/(tabs)/home');
+          //   }}
+          // ]);
+          setShowAlert(true);
+        }
+      }
+    } catch (error) {
+      console.error('[Consultant] Session poll error:', error);
+    }
+  }, 3000); // Poll every 3 seconds
+};
+
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isSendingMessage) return;
 
@@ -436,7 +487,7 @@ export default function ConsultantCallScreen() {
       await cleanup();
       endCall();
 
-      router.push('/(tabs)/home');
+      router.replace('/(tabs)/home');
     }
   };
 
@@ -555,7 +606,7 @@ export default function ConsultantCallScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Background Layer */}
-      {callType === 'video' && remoteUid !== 0 ? (
+      {callType === "video" && remoteUid !== 0 ? (
         <RtcSurfaceView
           style={styles.remoteVideo}
           canvas={{ uid: remoteUid }}
@@ -563,35 +614,37 @@ export default function ConsultantCallScreen() {
         />
       ) : (
         <View style={styles.audioBackgroundContainer}>
-           {/* Immersive Background Image */}
-           <Image 
-             source={{ uri: customerAvatar }} 
-             style={styles.backgroundImage}
-             blurRadius={50}
-           />
-           <View style={styles.backgroundOverlay} />
-           
-           {/* Main Avatar Content */}
-           <View style={styles.centerContent}>
-             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-               <View style={styles.mainAvatarContainer}>
-                 <Image 
-                   source={{ uri: customerAvatar }} 
-                   style={styles.mainAvatar}
-                 />
-               </View>
-             </Animated.View>
-             
-             <Text style={styles.customerName}>{customerName}</Text>
-             <Text style={styles.callStatusText}>
-               {isCustomerConnected ? 'Consultation in Progress' : 'Connecting...'}
-             </Text>
-           </View>
+          {/* Immersive Background Image */}
+          <Image
+            source={{ uri: customerAvatar }}
+            style={styles.backgroundImage}
+            blurRadius={50}
+          />
+          <View style={styles.backgroundOverlay} />
+
+          {/* Main Avatar Content */}
+          <View style={styles.centerContent}>
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <View style={styles.mainAvatarContainer}>
+                <Image
+                  source={{ uri: customerAvatar }}
+                  style={styles.mainAvatar}
+                />
+              </View>
+            </Animated.View>
+
+            <Text style={styles.customerName}>{customerName}</Text>
+            <Text style={styles.callStatusText}>
+              {isCustomerConnected
+                ? "Consultation in Progress"
+                : "Connecting..."}
+            </Text>
+          </View>
         </View>
       )}
 
       {/* Local Video (PiP) - Only for video calls */}
-      {callType === 'video' && isVideoEnabled && (
+      {callType === "video" && isVideoEnabled && (
         <View style={[styles.localVideoContainer, { top: insets.top + 60 }]}>
           <RtcSurfaceView
             style={styles.localVideo}
@@ -607,11 +660,13 @@ export default function ConsultantCallScreen() {
       {/* Top Floating Pill */}
       <View style={[styles.topPillContainer, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topPill}>
-           <View style={[
-             styles.statusDot, 
-             { backgroundColor: isCustomerConnected ? '#4CAF50' : '#F59E0B' }
-           ]} />
-           <Text style={styles.topPillTime}>{formatDuration(duration)}</Text>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: isCustomerConnected ? "#4CAF50" : "#F59E0B" },
+            ]}
+          />
+          <Text style={styles.topPillTime}>{formatDuration(duration)}</Text>
         </View>
       </View>
 
@@ -622,13 +677,18 @@ export default function ConsultantCallScreen() {
             styles.chatPanel,
             {
               bottom: chatPanelBottom,
-              maxHeight: keyboardVisible ? SCREEN_HEIGHT * 0.35 : SCREEN_HEIGHT * 0.45
-            }
+              maxHeight: keyboardVisible
+                ? SCREEN_HEIGHT * 0.35
+                : SCREEN_HEIGHT * 0.45,
+            },
           ]}
         >
           <View style={styles.chatHeader}>
             <Text style={styles.chatHeaderText}>Messages</Text>
-            <TouchableOpacity onPress={() => setShowChat(false)} style={styles.closeChatButton}>
+            <TouchableOpacity
+              onPress={() => setShowChat(false)}
+              style={styles.closeChatButton}
+            >
               <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           </View>
@@ -641,7 +701,9 @@ export default function ConsultantCallScreen() {
             style={styles.chatList}
             contentContainerStyle={styles.chatListContent}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => chatListRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={() =>
+              chatListRef.current?.scrollToEnd({ animated: false })
+            }
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.chatEmpty}>
@@ -668,7 +730,8 @@ export default function ConsultantCallScreen() {
             <TouchableOpacity
               style={[
                 styles.chatSendButton,
-                (!chatInput.trim() || isSendingMessage) && styles.chatSendButtonDisabled
+                (!chatInput.trim() || isSendingMessage) &&
+                  styles.chatSendButtonDisabled,
               ]}
               onPress={handleSendMessage}
               disabled={!chatInput.trim() || isSendingMessage}
@@ -683,15 +746,17 @@ export default function ConsultantCallScreen() {
       {!keyboardVisible && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 15 }]}>
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
+            colors={["transparent", "rgba(0,0,0,0.8)"]}
             style={styles.bottomGradient}
           >
             {/* Interaction Row: Chat Toggle + Emojis */}
             <View style={styles.interactionRow}>
-              
               {/* Chat Toggle */}
               <TouchableOpacity
-                style={[styles.chatToggleButton, showChat && styles.chatToggleButtonActive]}
+                style={[
+                  styles.chatToggleButton,
+                  showChat && styles.chatToggleButtonActive,
+                ]}
                 onPress={() => setShowChat(!showChat)}
               >
                 <Ionicons name="chatbubbles" size={24} color="white" />
@@ -699,20 +764,30 @@ export default function ConsultantCallScreen() {
 
               {/* Emoji Scroll */}
               <View style={styles.emojiContainer}>
-                 {EMOJIS.slice(0, 5).map((emoji, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.emojiButton}
-                      onPress={() => handleSendEmoji(emoji)}
-                    >
-                      <Text style={styles.emojiText}>{emoji}</Text>
-                    </TouchableOpacity>
-                 ))}
+                {EMOJIS.slice(0, 5).map((emoji, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.emojiButton}
+                    onPress={() => handleSendEmoji(emoji)}
+                  >
+                    <Text style={styles.emojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </LinearGradient>
         </View>
       )}
+      <CallEndedAlert
+        visible={showAlert}
+        message={message}
+        onOk={() => {
+          setShowAlert(false);
+          cleanup();
+          endCall();
+          router.replace("/(tabs)/home");
+        }}
+      />
     </View>
   );
 }

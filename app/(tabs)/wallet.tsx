@@ -1,20 +1,18 @@
 import GradientBackground from "@/components/Gradientbackground"; // Assuming you have this
 import { ThemedText } from "@/components/ThemedText"; // Assuming you have this
 import { getToken } from "@/utils/tokenHelper";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  FlatList,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 const API_BASE_URL = "https://api.colio.in/api";
@@ -72,13 +70,15 @@ type TransactionsApiResponse = {
 
 export default function ConsultantWalletScreen() {
   const router = useRouter();
-  
+
   // State
   const [wallet, setWallet] = useState<ConsultantWallet | null>(null);
   const [stats, setStats] = useState<ConsultantStats | null>(null);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity | null>(
+    null,
+  );
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  
+
   // Loading States
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -90,7 +90,7 @@ export default function ConsultantWalletScreen() {
     try {
       setError(null);
       const token = await getToken();
-      
+
       if (!token) {
         setError("Session expired. Please log in.");
         return;
@@ -101,12 +101,12 @@ export default function ConsultantWalletScreen() {
       // 1. Fetch Wallet Balance & Stats
       const walletRes = await axios.get<WalletApiResponse>(
         `${API_BASE_URL}/user/wallet`,
-        { headers }
+        { headers },
       );
 
       if (walletRes.data.success && walletRes.data.data) {
         const data = walletRes.data.data;
-        if (data.role === 'consultant') {
+        if (data.role === "consultant") {
           setWallet(data.wallet || null);
           setStats(data.consultantStats || null);
           setRecentActivity(data.recentActivity || null);
@@ -114,17 +114,6 @@ export default function ConsultantWalletScreen() {
           setError("User is not a consultant.");
         }
       }
-
-      // 2. Fetch Transactions (Page 1)
-      const txRes = await axios.get<TransactionsApiResponse>(
-        `${API_BASE_URL}/user/transactions?page=1&limit=10`,
-        { headers }
-      );
-
-      if (txRes.data.success) {
-        setTransactions(txRes.data.data.transactions);
-      }
-
     } catch (err: any) {
       console.error("Fetch error:", err);
       const msg = err.response?.data?.message || "Failed to load wallet data.";
@@ -160,15 +149,19 @@ export default function ConsultantWalletScreen() {
           <TouchableOpacity onPress={() => router.back()} className="p-2">
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
-          <ThemedText className="text-lg font-bold text-black">My Earnings</ThemedText>
+          <ThemedText className="text-lg font-bold text-black">
+            My Earnings
+          </ThemedText>
           <TouchableOpacity className="p-2">
             <Ionicons name="help-circle-outline" size={24} color="#000" />
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
           {error ? (
             <View className="bg-red-50 p-4 rounded-xl items-center">
@@ -188,7 +181,9 @@ export default function ConsultantWalletScreen() {
                 style={{ borderRadius: 24 }}
               >
                 <View>
-                  <Text className="text-white/80 text-sm font-medium mb-1">Available Balance</Text>
+                  <Text className="text-white/80 text-sm font-medium mb-1">
+                    Available Balance
+                  </Text>
                   <View className="flex-row items-center">
                     <Text className="text-white text-4xl font-extrabold">
                       ₹{wallet?.available || 0}
@@ -198,18 +193,24 @@ export default function ConsultantWalletScreen() {
 
                 <View className="flex-row mt-6 pt-4 border-t border-white/20">
                   <View className="flex-1">
-                    <Text className="text-white/70 text-xs">Pending Clearance</Text>
-                    <Text className="text-white text-lg font-bold">₹{wallet?.pending || 0}</Text>
+                    <Text className="text-white/70 text-xs">
+                      Pending Clearance
+                    </Text>
+                    <Text className="text-white text-lg font-bold">
+                      ₹{wallet?.pending || 0}
+                    </Text>
                   </View>
                   <View className="w-[1px] bg-white/20 h-full mx-4" />
                   <View className="flex-1">
-                    <Text className="text-white/70 text-xs">Lifetime Earnings</Text>
-                    <Text className="text-white text-lg font-bold">₹{wallet?.totalEarned || 0}</Text>
+                    <Text className="text-white/70 text-xs">
+                      Lifetime Earnings
+                    </Text>
+                    <Text className="text-white text-lg font-bold">
+                      ₹{wallet?.totalEarned || 0}
+                    </Text>
                   </View>
                 </View>
               </LinearGradient>
-
-              
 
               {/* 🚀 Last 30 Days Summary */}
               {/* {recentActivity && (
