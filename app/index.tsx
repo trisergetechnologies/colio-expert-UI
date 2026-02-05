@@ -1,4 +1,3 @@
-// app/index.tsx
 import GradientBackground from "@/components/Gradientbackground";
 import { useAuth } from "@/context/AuthContext";
 import firebase from '@react-native-firebase/app';
@@ -6,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Text, TouchableOpacity, View } from "react-native";
+import "../global.css";
 
 const slogans = [
   "Connect with Experts",
