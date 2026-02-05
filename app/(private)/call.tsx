@@ -74,6 +74,7 @@ export default function ConsultantCallScreen() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [alertMessage, setAlertMessage] = useState('Call ended');
 
   // Floating notifications (emojis + message bubbles)
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
@@ -152,6 +153,8 @@ export default function ConsultantCallScreen() {
     startEmojiPolling();
     startChatPolling();
     startSessionPolling();
+    const content = "Hii".trim();
+    const result = sendInCallMessage(sessionId, content, 'text');
 
     // Load initial chat messages
     fetchChatMessages();
@@ -267,7 +270,7 @@ export default function ConsultantCallScreen() {
 
   // ============ EMOJI FUNCTIONS ============
 
-  const startEmojiPolling = () => {
+  const startEmojiPolling = async() => {
     if (emojiPollRef.current) return;
 
     console.log('[Consultant] 🎭 Starting emoji polling');
@@ -306,11 +309,11 @@ export default function ConsultantCallScreen() {
   const fetchChatMessages = async () => {
     try {
       const result = await getInCallMessages(sessionId);
-      const messages = result.messages || [];
+      const messages = result?.messages || [];
       setChatMessages(messages);
 
       // Mark all initial messages as processed
-      messages.forEach(m => processedMessageIds.current.add(m._id));
+      messages?.forEach(m => processedMessageIds.current.add(m._id));
 
       lastChatPollTimeRef.current = result.serverTime;
     } catch (error) {
@@ -328,8 +331,8 @@ export default function ConsultantCallScreen() {
       try {
         const result = await getInCallMessages(sessionId, lastChatPollTimeRef.current);
 
-        if (result.messages?.length > 0) {
-          result.messages.forEach(msg => {
+        if (result?.messages?.length > 0) {
+          result?.messages.forEach(msg => {
             // Only process new messages
             if (!processedMessageIds.current.has(msg._id)) {
               processedMessageIds.current.add(msg._id);
@@ -398,6 +401,7 @@ const startSessionPolling = () => {
           //     router.replace('/(tabs)/home');
           //   }}
           // ]);
+          setAlertMessage(message);
           setShowAlert(true);
         }
       }
@@ -419,7 +423,7 @@ const startSessionPolling = () => {
 
       if (result?.message) {
         // Mark as processed and add to list
-        processedMessageIds.current.add(result.message._id);
+        processedMessageIds.current.add(result?.message._id);
         setChatMessages(prev => [...prev, result.message]);
 
         // Show own message as floating bubble too (optional)
@@ -780,7 +784,7 @@ const startSessionPolling = () => {
       )}
       <CallEndedAlert
         visible={showAlert}
-        message={message}
+        message={alertMessage}
         onOk={() => {
           setShowAlert(false);
           cleanup();
