@@ -260,13 +260,14 @@ export default function ChatScreen() {
     );
   };
 
-  // ✅ FIX: Properly determine if message is from current user
+  // ✅ (Minor cleanup only — behaviour unchanged)
   const isOwnMessage = (message: Message): boolean => {
-    const currentUserId = user?.userId?.toString() || user?.userId?.toString() || '';
-    const senderId = typeof message.sender === 'object' 
-      ? (message.sender._id?.toString() || message.sender._id?.toString() || '')
-      : message.sender?.toString() || '';
-    
+    const currentUserId = user?.userId?.toString() || '';
+    const senderId =
+      typeof message.sender === 'object'
+        ? message.sender._id?.toString() || ''
+        : message.sender?.toString() || '';
+
     return currentUserId === senderId;
   };
 
@@ -275,7 +276,6 @@ export default function ChatScreen() {
     const prevMessage = index > 0 ? messages[index - 1] : undefined;
     const showDateSeparator = shouldShowDateSeparator(item, prevMessage);
 
-    // Call log message - centered
     if (item.messageType === 'call_log') {
       return (
         <View>
@@ -308,7 +308,6 @@ export default function ChatScreen() {
       );
     }
 
-    // Regular message
     return (
       <View>
         {showDateSeparator && (
@@ -394,7 +393,6 @@ export default function ChatScreen() {
         <View style={styles.headerRight} />
       </LinearGradient>
 
-      {/* Messages + Input wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -425,7 +423,6 @@ export default function ChatScreen() {
           />
         )}
 
-        {/* Input Container */}
         <View
           style={[
             styles.inputContainer,

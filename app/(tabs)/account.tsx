@@ -7,20 +7,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   FlatList,
   Image,
-  Platform,
   Text,
-  ToastAndroid,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-
 
 export default function AccountScreen() {
   const router = useRouter();
-  const [profileImage, setProfileImage] = useState<string | null>(null); // start empty
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [referralCode] = useState("COLIO1234");
   const { user, logout } = useAuth();
 
@@ -37,132 +33,210 @@ export default function AccountScreen() {
     }
   };
 
-
-
   const moreOptions = [
     { id: "11", label: "Chat", icon: "chatbubbles-outline", path: "../(private)/chat" },
-    // { id: "4", label: "Performance", icon: "analytics-outline", path: "../(dashboard)/performance" },
     { id: "12", label: "Settlement", icon: "cash-outline", path: "../(dashboard)/settlement" },
-    // { id: "1", label: "Wallet", icon: "wallet", path: "../(tabs)/wallet" },
-    // { id: "2", label: "Activity", icon: "time-outline", path: "../(private)/history" },
-    // { id: "3", label: "Referrals", icon: "people-outline", path: "../(dashboard)/referral" },
     { id: "7", label: "About Us", icon: "information-circle-outline", path: "../(dashboard)/AboutUs" },
     { id: "8", label: "Quick-Assistance", icon: "headset-outline", path: "../(dashboard)/support" },
     { id: "5", label: "Terms & Conditions", icon: "document-text-outline", path: "../terms" },
     { id: "6", label: "Privacy Policy", icon: "lock-closed-outline", path: "../privacy" },
     { id: "9", label: "Logout", icon: "log-out-outline", isLogout: true },
-    // { id: "10", label: "Delete Account", icon: "trash-outline", isDelete: true },
   ];
 
   return (
     <GradientBackground>
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         {/* Header */}
-       <View className="flex-row items-center justify-between px-4 pt-14 pb-3 shadow-md rounded-b-2xl backdrop-blur-md">
-                 <TouchableOpacity onPress={() => router.back()}>
-                   <Ionicons name="arrow-back" size={24} color="#000" />
-                 </TouchableOpacity>
-       
-                 {/* <TouchableOpacity className="flex-row items-center">
-                   <Ionicons name="help-circle-outline" size={22} color="#000" />
-                   <Text className="ml-1 font-medium text-black">Assist</Text>
-                 </TouchableOpacity> */}
-               </View>
-
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            paddingTop: 56,
+            paddingBottom: 12,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+          }}
+        >
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
 
         {/* Profile Card */}
-        <View className="items-center mt-6">
+        <View style={{ alignItems: "center", marginTop: 24 }}>
           {user?.avatar ? (
-            <View className="relative">
+            <View style={{ position: "relative" }}>
               <Image
                 source={{ uri: user.avatar }}
-                className="w-28 h-28 rounded-full border-4 border-pink-600"
+                style={{
+                  width: 112,
+                  height: 112,
+                  borderRadius: 56,
+                  borderWidth: 4,
+                  borderColor: "#db2777",
+                }}
               />
-              {/* <TouchableOpacity
-                onPress={handleImagePick}
-                className="absolute bottom-1 right-1 bg-white p-1 rounded-full"
-              >
-                <Ionicons name="camera" size={18} color="#22c55e" />
-              </TouchableOpacity> */}
             </View>
           ) : (
             <TouchableOpacity
               onPress={handleImagePick}
-              className="w-28 h-28 rounded-full bg-black items-center justify-center"
+              style={{
+                width: 112,
+                height: 112,
+                borderRadius: 56,
+                backgroundColor: "#000",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               <Ionicons name="camera" size={40} color="#db2777" />
             </TouchableOpacity>
           )}
 
-          <Text className="text-black text-xl font-bold mt-3">{user?.name}</Text>
-          <Text className="text-black-200 mt-1">{user?.phone}</Text>
+          <Text
+            style={{
+              color: "#000",
+              fontSize: 20,
+              fontWeight: "700",
+              marginTop: 12,
+            }}
+          >
+            {user?.name}
+          </Text>
+          <Text style={{ color: "#666", marginTop: 4 }}>{user?.phone}</Text>
         </View>
 
         {/* Quick Actions */}
-        
-        <View className="flex-row justify-around mt-8 px-6">
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-around",
+            marginTop: 32,
+            paddingHorizontal: 24,
+          }}
+        >
+          {/* Calls */}
           <LinearGradient
             colors={["#fffaf3", "#ffd6a5"]}
             start={{ x: 1, y: 1 }}
             end={{ x: 1, y: 1 }}
             style={{ borderRadius: 16 }}
-            >
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)/sessions")}
-            className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
-            <Ionicons name="call-outline" size={24} color="#db2777" />
-            <Text className="text-black font-semibold mt-2 text-md">Calls</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/sessions")}
+              style={{
+                alignItems: "center",
+                backgroundColor: "rgba(255,255,255,0.2)",
+                padding: 16,
+                borderRadius: 16,
+                width: 96,
+              }}
+            >
+              <Ionicons name="call-outline" size={24} color="#db2777" />
+              <Text
+                style={{
+                  color: "#000",
+                  fontWeight: "600",
+                  marginTop: 8,
+                  fontSize: 14,
+                }}
+              >
+                Calls
+              </Text>
+            </TouchableOpacity>
           </LinearGradient>
 
+          {/* Chat */}
           <LinearGradient
             colors={["#fffaf3", "#ffd6a5"]}
             start={{ x: 1, y: 1 }}
             end={{ x: 1, y: 1 }}
             style={{ borderRadius: 16 }}
-            >
-          <TouchableOpacity
-            onPress={() => router.push("/(private)/chat")}
-            className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
-            <Ionicons name="chatbubble-outline" size={24} color="#db2777" />
-            <Text className="text-black font-semibold mt-2 text-md">Chat</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(private)/chat")}
+              style={{
+                alignItems: "center",
+                backgroundColor: "rgba(255,255,255,0.2)",
+                padding: 16,
+                borderRadius: 16,
+                width: 96,
+              }}
+            >
+              <Ionicons name="chatbubble-outline" size={24} color="#db2777" />
+              <Text
+                style={{
+                  color: "#000",
+                  fontWeight: "600",
+                  marginTop: 8,
+                  fontSize: 14,
+                }}
+              >
+                Chat
+              </Text>
+            </TouchableOpacity>
           </LinearGradient>
 
+          {/* Video */}
           <LinearGradient
             colors={["#fffaf3", "#ffd6a5"]}
             start={{ x: 1, y: 1 }}
             end={{ x: 1, y: 1 }}
             style={{ borderRadius: 16 }}
-            >
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)/sessions")}
-            className="items-center bg-white/20 p-4 rounded-2xl w-24"
           >
-            <Ionicons name="videocam-outline" size={24} color="#db2777" />
-            <Text className="text-black font-semibold mt-2 text-md">Video</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/sessions")}
+              style={{
+                alignItems: "center",
+                backgroundColor: "rgba(255,255,255,0.2)",
+                padding: 16,
+                borderRadius: 16,
+                width: 96,
+              }}
+            >
+              <Ionicons name="videocam-outline" size={24} color="#db2777" />
+              <Text
+                style={{
+                  color: "#000",
+                  fontWeight: "600",
+                  marginTop: 8,
+                  fontSize: 14,
+                }}
+              >
+                Video
+              </Text>
+            </TouchableOpacity>
           </LinearGradient>
         </View>
 
-        {/* More Options (with Delete inside) */}
+        {/* More Options */}
         <FlatList
           data={moreOptions}
           keyExtractor={(item) => item.id}
+          style={{ marginTop: 24 }}
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() =>{
-                if(item.label == 'Logout'){
+              onPress={() => {
+                if (item.label === "Logout") {
                   logout();
+                } else {
+                  router.push(item.path as any);
                 }
-                else{
-                  router.push(item.path as any)
-                }
-              }
-              }
-              className="flex-row items-center px-6 py-4 border-b border-white/10"
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 24,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255,255,255,0.1)",
+              }}
             >
               <Ionicons
                 name={item.icon as any}
@@ -170,20 +244,22 @@ export default function AccountScreen() {
                 color={item.isLogout ? "red" : "black"}
               />
               <Text
-                className={`ml-4 text-base font-medium ${
-                  item.isLogout ? "text-red-500 font-semibold" : "text-black"
-                }`}
+                style={{
+                  marginLeft: 16,
+                  fontSize: 16,
+                  fontWeight: item.isLogout ? "700" : "500",
+                  color: item.isLogout ? "#ef4444" : "#000",
+                }}
               >
                 {item.label}
               </Text>
             </TouchableOpacity>
           )}
-          className="mt-6"
         />
 
         {/* Footer */}
-        <View className="items-center pt-4 mb-4">
-          <Text className="text-pink-600 text-sm"> Colio</Text>
+        <View style={{ alignItems: "center", paddingTop: 16, marginBottom: 16 }}>
+          <Text style={{ color: "#db2777", fontSize: 14 }}>Colio</Text>
         </View>
       </View>
     </GradientBackground>

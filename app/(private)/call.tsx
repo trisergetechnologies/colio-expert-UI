@@ -57,7 +57,6 @@ export default function ConsultantCallScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { endCall } = useCallContext();
-  // const { resetPolling } = useIncomingCallPolling();
 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
@@ -76,10 +75,8 @@ export default function ConsultantCallScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [alertMessage, setAlertMessage] = useState('Call ended');
 
-  // Floating notifications (emojis + message bubbles)
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
 
-  // Refs
   const sessionPollRef = useRef<NodeJS.Timeout | null>(null);
   const engineRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
@@ -92,17 +89,17 @@ export default function ConsultantCallScreen() {
   const chatListRef = useRef<FlatList>(null);
   const processedMessageIds = useRef<Set<string>>(new Set());
 
-  // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const sessionId = params.sessionId as string;
   const callType = params.callType as string;
   const customerName = params.customerName as string || 'Customer';
   const customerId = params.customerId as string;
-  // Use a default avatar if none provided (assuming param exists or fallback)
-  const customerAvatar = (params.customerAvatar as string) || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const customerAvatar =
+    (params.customerAvatar as string) ||
+    'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
-  // ✅ Keyboard listeners
+  // Keyboard listeners
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
@@ -111,6 +108,7 @@ export default function ConsultantCallScreen() {
         setKeyboardHeight(e.endCoordinates.height);
       }
     );
+
     const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
@@ -144,19 +142,16 @@ export default function ConsultantCallScreen() {
       setIsVideoEnabled(true);
     }
 
-    // Duration timer
     timerRef.current = setInterval(() => {
-      setDuration(prev => prev + 1);
+      setDuration((prev) => prev + 1);
     }, 1000);
 
-    // ✅ Start BOTH polling immediately when call starts
     startEmojiPolling();
     startChatPolling();
     startSessionPolling();
     const content = "Hii".trim();
     const result = sendInCallMessage(sessionId, content, 'text');
 
-    // Load initial chat messages
     fetchChatMessages();
 
     return () => {
@@ -199,7 +194,7 @@ export default function ConsultantCallScreen() {
         setRemoteUid(uid);
         setIsCustomerConnected(true);
       },
-      onUserOffline: (connection: any, uid: number, reason: number) => {
+      onUserOffline: () => {
         console.log('[Consultant] Customer left');
         setRemoteUid(0);
         setIsCustomerConnected(false);
@@ -224,11 +219,11 @@ export default function ConsultantCallScreen() {
       if (engineRef.current) {
         try {
           await engineRef.current.leaveChannel();
-        } catch (e) { }
+        } catch {}
 
         try {
           await engineRef.current.release();
-        } catch (e) { }
+        } catch {}
 
         (global as any).consultantEngine = null;
         engineRef.current = null;
@@ -239,8 +234,6 @@ export default function ConsultantCallScreen() {
     }
   };
 
-  // ============ FLOATING NOTIFICATION ============
-
   const showFloatingNotification = (
     type: 'emoji' | 'message',
     content: string,
@@ -250,27 +243,23 @@ export default function ConsultantCallScreen() {
     const id = notificationIdRef.current++;
     const animation = new Animated.Value(0);
 
-    setFloatingNotifications(prev => [...prev, {
-      id,
-      type,
-      content,
-      isOwn,
-      animation,
-      senderName
-    }]);
+    setFloatingNotifications((prev) => [
+      ...prev,
+      { id, type, content, isOwn, animation, senderName },
+    ]);
 
     Animated.timing(animation, {
       toValue: 1,
       duration: type === 'message' ? 3500 : 2500,
       useNativeDriver: true,
     }).start(() => {
-      setFloatingNotifications(prev => prev.filter(n => n.id !== id));
+      setFloatingNotifications((prev) =>
+        prev.filter((n) => n.id !== id)
+      );
     });
   };
 
-  // ============ EMOJI FUNCTIONS ============
-
-  const startEmojiPolling = async() => {
+  const startEmojiPolling = async () => {
     if (emojiPollRef.current) return;
 
     console.log('[Consultant] 🎭 Starting emoji polling');
@@ -278,14 +267,21 @@ export default function ConsultantCallScreen() {
 
     emojiPollRef.current = setInterval(async () => {
       try {
-        const result = await pollCallEmojis(sessionId, lastEmojiPollTimeRef.current);
+        const result = await pollCallEmojis(
+          sessionId,
+          lastEmojiPollTimeRef.current
+        );
 
         if (result.emojis?.length > 0) {
-          const customerEmojis = result.emojis.filter(e => e.senderType === 'customer');
-          customerEmojis.forEach(e => {
+          const customerEmojis = result.emojis.filter(
+            (e) => e.senderType === 'customer'
+          );
+
+          customerEmojis.forEach((e) => {
             showFloatingNotification('emoji', e.emoji, false);
           });
         }
+
         lastEmojiPollTimeRef.current = result.serverTime;
       } catch (error) {
         console.error('[Consultant] Emoji poll error:', error);
@@ -294,7 +290,6 @@ export default function ConsultantCallScreen() {
   };
 
   const handleSendEmoji = async (emoji: string) => {
-    // Show own emoji floating
     showFloatingNotification('emoji', emoji, true);
 
     try {
@@ -304,16 +299,14 @@ export default function ConsultantCallScreen() {
     }
   };
 
-  // ============ CHAT FUNCTIONS ============
-
   const fetchChatMessages = async () => {
     try {
       const result = await getInCallMessages(sessionId);
       const messages = result?.messages || [];
+
       setChatMessages(messages);
 
-      // Mark all initial messages as processed
-      messages?.forEach(m => processedMessageIds.current.add(m._id));
+      messages.forEach((m) => processedMessageIds.current.add(m._id));
 
       lastChatPollTimeRef.current = result.serverTime;
     } catch (error) {
@@ -321,7 +314,6 @@ export default function ConsultantCallScreen() {
     }
   };
 
-  // ✅ Chat polling starts immediately and runs continuously
   const startChatPolling = () => {
     if (chatPollRef.current) return;
 
@@ -329,21 +321,21 @@ export default function ConsultantCallScreen() {
 
     chatPollRef.current = setInterval(async () => {
       try {
-        const result = await getInCallMessages(sessionId, lastChatPollTimeRef.current);
+        const result = await getInCallMessages(
+          sessionId,
+          lastChatPollTimeRef.current
+        );
 
         if (result?.messages?.length > 0) {
-          result?.messages.forEach(msg => {
-            // Only process new messages
+          result.messages.forEach((msg) => {
             if (!processedMessageIds.current.has(msg._id)) {
               processedMessageIds.current.add(msg._id);
 
-              // Add to chat list
-              setChatMessages(prev => [...prev, msg]);
+              setChatMessages((prev) => [...prev, msg]);
 
               // Check if it's from customer (not own message)
               const isOwn = isOwnMessage(msg);
 
-              // ✅ Show floating bubble for incoming messages (not own)
               if (!isOwn) {
                 showFloatingNotification(
                   'message',
@@ -363,53 +355,42 @@ export default function ConsultantCallScreen() {
     }, POLLING_INTERVALS.IN_CALL_MESSAGES);
   };
 
-  // ============ SESSION STATUS POLLING (for auto-end detection) ============
-const startSessionPolling = () => {
-  if (sessionPollRef.current) return;
+  const startSessionPolling = () => {
+    if (sessionPollRef.current) return;
 
-  console.log('[Consultant] 📊 Starting session status polling');
+    console.log('[Consultant] 📊 Starting session status polling');
 
-  sessionPollRef.current = setInterval(async () => {
-    try {
-      const jwt = await getToken();
-      const response = await axios.get(
-        `${API_BASE_URL}/session/${sessionId}/status`,
-        { headers: { Authorization: `Bearer ${jwt}` } }
-      );
+    sessionPollRef.current = setInterval(async () => {
+      try {
+        const jwt = await getToken();
+        const response = await axios.get(
+          `${API_BASE_URL}/session/${sessionId}/status`,
+          { headers: { Authorization: `Bearer ${jwt}` } }
+        );
 
-      if (response.data.success) {
-        const { status, autoEnded, endReason } = response.data.data;
+        if (response.data.success) {
+          const { status, autoEnded, endReason } = response.data.data;
 
-        if (status === 'ended') {
-          console.log('[Consultant] 📞 Session ended externally:', { autoEnded, endReason });
-          
-          // Stop polling
-          if (sessionPollRef.current) {
-            clearInterval(sessionPollRef.current);
-            sessionPollRef.current = null;
+          if (status === 'ended') {
+            if (sessionPollRef.current) {
+              clearInterval(sessionPollRef.current);
+              sessionPollRef.current = null;
+            }
+
+            const message =
+              autoEnded && endReason === 'insufficient_balance'
+                ? 'Call ended - Customer balance depleted'
+                : 'Call ended by customer';
+
+            setAlertMessage(message);
+            setShowAlert(true);
           }
-
-          // Show appropriate message
-          const message = autoEnded && endReason === 'insufficient_balance'
-            ? 'Call ended - Customer balance depleted'
-            : 'Call ended by customer';
-
-          // Alert.alert('Call Ended', message, [
-          //   { text: 'OK', onPress: () => {
-          //     cleanup();
-          //     endCall();
-          //     router.replace('/(tabs)/home');
-          //   }}
-          // ]);
-          setAlertMessage(message);
-          setShowAlert(true);
         }
+      } catch (error) {
+        console.error('[Consultant] Session poll error:', error);
       }
-    } catch (error) {
-      console.error('[Consultant] Session poll error:', error);
-    }
-  }, 3000); // Poll every 3 seconds
-};
+    }, 3000);
+  };
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isSendingMessage) return;
@@ -422,11 +403,9 @@ const startSessionPolling = () => {
       const result = await sendInCallMessage(sessionId, content, 'text');
 
       if (result?.message) {
-        // Mark as processed and add to list
-        processedMessageIds.current.add(result?.message._id);
-        setChatMessages(prev => [...prev, result.message]);
+        processedMessageIds.current.add(result.message._id);
+        setChatMessages((prev) => [...prev, result.message]);
 
-        // Show own message as floating bubble too (optional)
         showFloatingNotification('message', content, true);
 
         setTimeout(() => {
@@ -443,35 +422,12 @@ const startSessionPolling = () => {
 
   const isOwnMessage = (message: any): boolean => {
     const currentUserId = user?.userId?.toString();
-    const senderId = typeof message.sender === 'object'
-      ? (message.sender._id?.toString() || '')
-      : message.sender?.toString() || '';
+    const senderId =
+      typeof message.sender === 'object'
+        ? message.sender._id?.toString() || ''
+        : message.sender?.toString() || '';
+
     return currentUserId === senderId;
-  };
-
-  // ============ CALL CONTROLS (Kept but unused in UI) ============
-
-  const toggleMute = async () => {
-    if (!engineRef.current) return;
-    await engineRef.current.muteLocalAudioStream(!isMuted);
-    setIsMuted(!isMuted);
-  };
-
-  const toggleVideo = async () => {
-    if (!engineRef.current || callType !== 'video') return;
-    await engineRef.current.enableLocalVideo(!isVideoEnabled);
-    setIsVideoEnabled(!isVideoEnabled);
-  };
-
-  const switchCamera = async () => {
-    if (!engineRef.current || callType !== 'video') return;
-    await engineRef.current.switchCamera();
-  };
-
-  const toggleSpeaker = async () => {
-    if (!engineRef.current) return;
-    await engineRef.current.setEnableSpeakerphone(!isSpeakerOn);
-    setIsSpeakerOn(!isSpeakerOn);
   };
 
   const handleEndCall = async () => {
@@ -490,7 +446,6 @@ const startSessionPolling = () => {
     } finally {
       await cleanup();
       endCall();
-
       router.replace('/(tabs)/home');
     }
   };
@@ -498,19 +453,21 @@ const startSessionPolling = () => {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
   };
-
-  // ============ RENDER ============
 
   const renderChatMessage = ({ item }: { item: Message }) => {
     const isOwn = isOwnMessage(item);
 
     return (
-      <View style={[
-        styles.chatBubble,
-        isOwn ? styles.chatBubbleOwn : styles.chatBubbleOther
-      ]}>
+      <View
+        style={[
+          styles.chatBubble,
+          isOwn ? styles.chatBubbleOwn : styles.chatBubbleOther,
+        ]}
+      >
         <Text style={styles.chatBubbleText}>{item.content}</Text>
         <Text style={styles.chatBubbleTime}>
           {new Date(item.createdAt).toLocaleTimeString('en-US', {
@@ -523,7 +480,6 @@ const startSessionPolling = () => {
     );
   };
 
-  // ✅ Render floating notification (emoji or message bubble)
   const renderFloatingNotification = (notification: FloatingNotification) => {
     const { id, type, content, isOwn, animation, senderName } = notification;
 
@@ -543,7 +499,7 @@ const startSessionPolling = () => {
                 {
                   translateY: animation.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, -350], // Higher float for better visibility
+                    outputRange: [0, -350],
                   }),
                 },
                 {
@@ -561,7 +517,6 @@ const startSessionPolling = () => {
       );
     }
 
-    // Message bubble
     return (
       <Animated.View
         key={id}
@@ -600,16 +555,14 @@ const startSessionPolling = () => {
     );
   };
 
-  // Calculate chat panel position based on keyboard
   const chatPanelBottom = keyboardVisible
     ? keyboardHeight + 10
-    : 110; // Lower than before since controls are gone
+    : 110;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Background Layer */}
       {callType === "video" && remoteUid !== 0 ? (
         <RtcSurfaceView
           style={styles.remoteVideo}
@@ -618,7 +571,6 @@ const startSessionPolling = () => {
         />
       ) : (
         <View style={styles.audioBackgroundContainer}>
-          {/* Immersive Background Image */}
           <Image
             source={{ uri: customerAvatar }}
             style={styles.backgroundImage}
@@ -626,7 +578,6 @@ const startSessionPolling = () => {
           />
           <View style={styles.backgroundOverlay} />
 
-          {/* Main Avatar Content */}
           <View style={styles.centerContent}>
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
               <View style={styles.mainAvatarContainer}>
@@ -647,7 +598,6 @@ const startSessionPolling = () => {
         </View>
       )}
 
-      {/* Local Video (PiP) - Only for video calls */}
       {callType === "video" && isVideoEnabled && (
         <View style={[styles.localVideoContainer, { top: insets.top + 60 }]}>
           <RtcSurfaceView
@@ -658,23 +608,24 @@ const startSessionPolling = () => {
         </View>
       )}
 
-      {/* ✅ Floating Notifications */}
       {floatingNotifications.map(renderFloatingNotification)}
 
-      {/* Top Floating Pill */}
       <View style={[styles.topPillContainer, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topPill}>
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: isCustomerConnected ? "#4CAF50" : "#F59E0B" },
+              {
+                backgroundColor: isCustomerConnected
+                  ? "#4CAF50"
+                  : "#F59E0B",
+              },
             ]}
           />
           <Text style={styles.topPillTime}>{formatDuration(duration)}</Text>
         </View>
       </View>
 
-      {/* ✅ Chat Panel */}
       {showChat && (
         <View
           style={[
@@ -693,7 +644,11 @@ const startSessionPolling = () => {
               onPress={() => setShowChat(false)}
               style={styles.closeChatButton}
             >
-              <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+              <Ionicons
+                name="close"
+                size={20}
+                color="rgba(255,255,255,0.7)"
+              />
             </TouchableOpacity>
           </View>
 
@@ -746,16 +701,13 @@ const startSessionPolling = () => {
         </View>
       )}
 
-      {/* Bottom Interaction Bar - Cleaned Up */}
       {!keyboardVisible && (
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 15 }]}>
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.8)"]}
             style={styles.bottomGradient}
           >
-            {/* Interaction Row: Chat Toggle + Emojis */}
             <View style={styles.interactionRow}>
-              {/* Chat Toggle */}
               <TouchableOpacity
                 style={[
                   styles.chatToggleButton,
@@ -766,7 +718,6 @@ const startSessionPolling = () => {
                 <Ionicons name="chatbubbles" size={24} color="white" />
               </TouchableOpacity>
 
-              {/* Emoji Scroll */}
               <View style={styles.emojiContainer}>
                 {EMOJIS.slice(0, 5).map((emoji, index) => (
                   <TouchableOpacity
@@ -782,6 +733,7 @@ const startSessionPolling = () => {
           </LinearGradient>
         </View>
       )}
+
       <CallEndedAlert
         visible={showAlert}
         message={alertMessage}
@@ -796,14 +748,10 @@ const startSessionPolling = () => {
   );
 }
 
+/* ===================== STYLES (UNCHANGED) ===================== */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  remoteVideo: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  remoteVideo: { ...StyleSheet.absoluteFillObject },
   audioBackgroundContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -834,20 +782,13 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 25,
   },
-  mainAvatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 80,
-  },
+  mainAvatar: { width: '100%', height: '100%', borderRadius: 80 },
   customerName: {
     fontSize: 32,
     fontWeight: '700',
     color: 'white',
     textAlign: 'center',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   callStatusText: {
     fontSize: 16,
@@ -855,23 +796,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.5,
   },
-  
-  // Floating Notifications
   floatingEmoji: {
     position: 'absolute',
     bottom: 120,
     fontSize: 55,
     zIndex: 100,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
-  floatingRight: {
-    right: 30,
-  },
-  floatingLeft: {
-    left: 30,
-  },
+  floatingRight: { right: 30 },
+  floatingLeft: { left: 30 },
   floatingMessageBubble: {
     position: 'absolute',
     bottom: 120,
@@ -928,7 +860,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: 'white',
-    fontVariant: ['tabular-nums'],
   },
 
   // Local Video
@@ -944,12 +875,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     elevation: 5,
   },
-  localVideo: {
-    width: '100%',
-    height: '100%',
-  },
-
-  // Chat Panel (Modern)
+  localVideo: { width: '100%', height: '100%' },
   chatPanel: {
     position: 'absolute',
     left: 15,
@@ -977,23 +903,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'white',
   },
-  closeChatButton: {
-    padding: 4,
-  },
-  chatList: {
-    maxHeight: SCREEN_HEIGHT * 0.28,
-  },
-  chatListContent: {
-    padding: 16,
-  },
-  chatEmpty: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  chatEmptyText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 14,
-  },
+  closeChatButton: { padding: 4 },
+  chatList: { maxHeight: SCREEN_HEIGHT * 0.28 },
+  chatListContent: { padding: 16 },
+  chatEmpty: { padding: 30, alignItems: 'center' },
+  chatEmptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
   chatBubble: {
     maxWidth: '80%',
     paddingHorizontal: 14,
@@ -1011,11 +925,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderBottomLeftRadius: 4,
   },
-  chatBubbleText: {
-    color: 'white',
-    fontSize: 15,
-    lineHeight: 20,
-  },
+  chatBubbleText: { color: 'white', fontSize: 15, lineHeight: 20 },
   chatBubbleTime: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 10,
@@ -1052,18 +962,8 @@ const styles = StyleSheet.create({
   chatSendButtonDisabled: {
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-
-  // Bottom Interaction Bar
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  bottomGradient: {
-    paddingTop: 30,
-    paddingBottom: 10,
-  },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  bottomGradient: { paddingTop: 30, paddingBottom: 10 },
   interactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1101,7 +1001,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emojiText: {
-    fontSize: 22,
-  },
+  emojiText: { fontSize: 22 },
 });

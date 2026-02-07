@@ -1,4 +1,3 @@
-// app/(private)/support.tsx
 import GradientBackground from "@/components/Gradientbackground";
 import { ThemedText } from "@/components/ThemedText";
 import { Ionicons } from "@expo/vector-icons";
@@ -55,7 +54,7 @@ export default function SupportScreen() {
   };
 
   const handleEmail = async () => {
-    const mail = "support@colio.com";
+    const mail = "hr@colio.com";
     const subject = encodeURIComponent("Support request");
     const body = encodeURIComponent(query || "Hi, I need help with...");
     try {
@@ -67,7 +66,7 @@ export default function SupportScreen() {
   };
 
   const handleCall = async () => {
-    const phone = "+919876543210";
+    const phone = "8368354151";
     const url =
       Platform.OS === "android" ? `tel:${phone}` : `telprompt:${phone}`;
     try {
@@ -102,77 +101,124 @@ export default function SupportScreen() {
   return (
     <GradientBackground>
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between px-4 pt-14 pb-3 shadow-md rounded-b-2xl backdrop-blur-md">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            paddingTop: 56,
+            paddingBottom: 12,
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
+            shadowColor: "#000",
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+            elevation: 4,
+          }}
+        >
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
 
-          <ThemedText className="text-lg font-bold text-black">
+          <ThemedText style={{ fontSize: 18, fontWeight: "700", color: "#000" }}>
             Quick Assistance
           </ThemedText>
 
-          {/* <TouchableOpacity className="flex-row items-center">
-            <Ionicons name="help-circle-outline" size={22} color="#000" />
-            <ThemedText className="ml-1 font-medium text-black">Help</ThemedText>
-          </TouchableOpacity> */}
+          <View style={{ width: 24 }} />
         </View>
 
         {/* Quick Assist Card */}
         <Animated.View
           entering={FadeInDown.delay(100).springify()}
-          className="px-4 mt-6"
+          style={{ paddingHorizontal: 16, marginTop: 24 }}
         >
           <LinearGradient
             colors={["#fffaf3", "#ffd6a5", "#ff9d76", "#ffeac7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            className="rounded-3xl p-[1px] shadow-sm"
-            style={{ borderRadius: 16 }}
+            style={{ borderRadius: 16, padding: 1, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6 }}
           >
-            <View className="bg-white/80 rounded-3xl p-5">
-              <View className="flex-row items-start">
-                <View className="w-14 h-14 rounded-xl bg-green-500 items-center justify-center shadow-sm">
+            <View
+              style={{
+                backgroundColor: "rgba(255,255,255,0.8)",
+                borderRadius: 16,
+                padding: 20,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 12,
+                    backgroundColor: "#22c55e",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#000",
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                  }}
+                >
                   <Ionicons name="help-circle" size={28} color="#fff" />
                 </View>
 
-                <View className="flex-1 pl-3">
-                  <ThemedText className="text-lg font-bold text-black">
+                <View style={{ flex: 1, paddingLeft: 12 }}>
+                  <ThemedText style={{ fontSize: 18, fontWeight: "700", color: "#000" }}>
                     Quick Assist
                   </ThemedText>
-                  <ThemedText className="text-sm text-black/70 mt-1">
+
+                  <ThemedText style={{ fontSize: 14, color: "rgba(0,0,0,0.7)", marginTop: 4 }}>
                     Contact us quickly or use templates to save time.
                   </ThemedText>
 
-                  <View className="flex-row mt-4">
+                  <View style={{ flexDirection: "row", marginTop: 16 }}>
                     <TouchableOpacity
                       onPress={handleEmail}
-                      className="flex-row items-center justify-center px-4 py-2 rounded-full bg-[#ffd6a5] mr-3"
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: "#ffd6a5",
+                        marginRight: 12,
+                      }}
                     >
                       <Ionicons name="mail" size={16} color="#000" />
-                      <ThemedText className="ml-2 text-sm font-semibold text-black">
+                      <ThemedText style={{ marginLeft: 8, fontSize: 14, fontWeight: "600", color: "#000" }}>
                         Email
                       </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={handleCall}
-                      className="flex-row items-center justify-center px-4 py-2 rounded-full bg-[#ffd6a5]"
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: "#ffd6a5",
+                      }}
                     >
                       <Ionicons name="call" size={16} color="#000" />
-                      <ThemedText className="ml-2 text-sm font-semibold text-black">
+                      <ThemedText style={{ marginLeft: 8, fontSize: 14, fontWeight: "600", color: "#000" }}>
                         Call
                       </ThemedText>
                     </TouchableOpacity>
                   </View>
 
-                  <View className="flex-row items-center mt-3">
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
                     <Ionicons name="time-outline" size={14} color="#000" />
-                    <ThemedText className="ml-2 text-xs text-black/60">
+                    <ThemedText style={{ marginLeft: 8, fontSize: 12, color: "rgba(0,0,0,0.6)" }}>
                       Support hours: 9 AM — 9 PM
                     </ThemedText>
                   </View>
@@ -182,14 +228,27 @@ export default function SupportScreen() {
           </LinearGradient>
 
           {/* Quick Templates */}
-          <View className="flex-row flex-wrap mt-4">
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              marginTop: 16,
+            }}
+          >
             {templates.map((t) => (
               <TouchableOpacity
                 key={t.id}
                 onPress={() => handleTemplate(t.text)}
-                className="px-4 py-2 mr-2 mb-2 rounded-full bg-[#ff9d76]/80"
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  marginRight: 8,
+                  marginBottom: 8,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(255,157,118,0.8)",
+                }}
               >
-                <ThemedText className="text-sm font-medium text-black">
+                <ThemedText style={{ fontSize: 14, fontWeight: "500", color: "#000" }}>
                   {t.label}
                 </ThemedText>
               </TouchableOpacity>

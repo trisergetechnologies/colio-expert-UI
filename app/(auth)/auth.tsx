@@ -51,8 +51,21 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
   return (
     <Animated.View
       pointerEvents="none"
-      className="absolute left-6 right-6 bottom-10 bg-[#1e1724]/95 rounded-xl px-4 py-3 items-center shadow-lg"
       style={{
+        position: "absolute",
+        left: 24,
+        right: 24,
+        bottom: 40,
+        backgroundColor: "rgba(30, 23, 36, 0.95)",
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 6,
         opacity: anim,
         transform: [
           {
@@ -64,7 +77,9 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
         ],
       }}
     >
-      <Text className="text-white text-sm font-semibold">{message}</Text>
+      <Text style={{ color: "white", fontSize: 14, fontWeight: "600" }}>
+        {message}
+      </Text>
     </Animated.View>
   );
 }
@@ -92,15 +107,27 @@ const CardInput = React.memo(
     keyboardType?: any;
     errorMessage?: string;
   }) => (
-    <View className="mb-3 mt-6">
+    <View style={{ marginBottom: 12, marginTop: 24 }}>
       <LinearGradient
         colors={["#fffaf3", "#db2777"]}
         start={{ x: 2, y: 0 }}
         end={{ x: 2, y: 0 }}
         style={{ borderRadius: 16 }}
       >
-        <View className="flex-row items-center rounded-2xl bg-black/50 px-3 py-4">
-          <View className="w-9 items-center mr-2">{leftIcon}</View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            borderRadius: 16,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            paddingHorizontal: 12,
+            paddingVertical: 16,
+          }}
+        >
+          <View style={{ width: 36, alignItems: "center", marginRight: 8 }}>
+            {leftIcon}
+          </View>
+
           <TextInput
             placeholder={placeholder}
             placeholderTextColor="#d8bfd8"
@@ -109,17 +136,35 @@ const CardInput = React.memo(
             keyboardType={keyboardType}
             secureTextEntry={secure}
             autoCapitalize="none"
-            className="flex-1 text-white text-base"
+            style={{
+              flex: 1,
+              color: "white",
+              fontSize: 16,
+            }}
           />
+
           {rightIcon ? (
-            <TouchableOpacity onPress={onRightPress} className="ml-3 p-1">
+            <TouchableOpacity
+              onPress={onRightPress}
+              style={{ marginLeft: 12, padding: 4 }}
+            >
               {rightIcon}
             </TouchableOpacity>
           ) : null}
         </View>
       </LinearGradient>
+
       {errorMessage ? (
-        <Text className="text-red-400 text-xs mt-2 ml-2">{errorMessage}</Text>
+        <Text
+          style={{
+            color: "#f87171",
+            fontSize: 12,
+            marginTop: 8,
+            marginLeft: 8,
+          }}
+        >
+          {errorMessage}
+        </Text>
       ) : null}
     </View>
   )
@@ -154,6 +199,7 @@ export default function ConsultantLoginScreen() {
   /* ✅ Validators */
   const isValidEmail = (v: string) => /^\S+@\S+\.\S+$/.test(v.trim());
   const isValidPhone = (v: string) => /^[0-9]{10}$/.test(v.trim());
+
   const showToast = (m: string) => {
     setToast({ msg: m, visible: true });
     setTimeout(() => setToast({ msg: "", visible: false }), 2400);
@@ -183,18 +229,24 @@ export default function ConsultantLoginScreen() {
         identifier: identifier.trim().toLowerCase(),
         password,
         loginType,
-        role: 'consultant'
+        role: "consultant",
       };
 
       const res = await axios.post(`${API_BASE_URL}/auth/login`, payload);
+
       if (res.data?.success && res.data?.data) {
         console.log("this is data after login", res.data.data);
         await saveAuthData(res.data.data);
         showToast("Login successful!");
         router.replace("/(tabs)/home");
-      } else showToast(res.data?.message || "Invalid credentials");
+      } else {
+        showToast(res.data?.message || "Invalid credentials");
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Login failed";
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Login failed";
       showToast(msg);
     } finally {
       setLoading(false);
@@ -215,8 +267,10 @@ export default function ConsultantLoginScreen() {
         >
           {/* Header */}
           <Animated.View
-            className="items-center justify-center pt-12"
             style={{
+              alignItems: "center",
+              justifyContent: "center",
+              paddingTop: 48,
               opacity: headerFade,
               transform: [
                 {
@@ -229,18 +283,31 @@ export default function ConsultantLoginScreen() {
             }}
           >
             <Text
-              className="text-black text-6xl pt-16"
-              style={{ fontFamily: "Pacifico_400Regular" }}
+              style={{
+                color: "black",
+                fontSize: 60,
+                paddingTop: 64,
+                fontFamily: "Pacifico_400Regular",
+              }}
             >
               Colio
             </Text>
-            <Text className="text-black mt-2 text-sm px-12 text-center">
+
+            <Text
+              style={{
+                color: "black",
+                marginTop: 8,
+                fontSize: 14,
+                paddingHorizontal: 48,
+                textAlign: "center",
+              }}
+            >
               Login to your consultant account
             </Text>
           </Animated.View>
 
           {/* Login Form */}
-          <View className="px-6 mt-10">
+          <View style={{ paddingHorizontal: 24, marginTop: 40 }}>
             <CardInput
               leftIcon={
                 <MaterialIcons
@@ -278,11 +345,11 @@ export default function ConsultantLoginScreen() {
               onRightPress={() => setShowPassword((s) => !s)}
             />
 
-            <View className="items-end mb-3">
+            <View style={{ alignItems: "flex-end", marginBottom: 12 }}>
               <TouchableOpacity
                 onPress={() => showToast("Password reset coming soon")}
               >
-                <Text className="text-black">Forgot Password?</Text>
+                <Text style={{ color: "black" }}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
@@ -298,12 +365,19 @@ export default function ConsultantLoginScreen() {
                   shadowColor: "#a855f7",
                   shadowOpacity: 0.3,
                   shadowRadius: 10,
+                  elevation: 4,
                 }}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text className="text-white font-extrabold text-base">
+                  <Text
+                    style={{
+                      color: "white",
+                      fontWeight: "800",
+                      fontSize: 16,
+                    }}
+                  >
                     Login
                   </Text>
                 )}
@@ -311,8 +385,14 @@ export default function ConsultantLoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className="px-6 mt-6 mb-12">
-            <Text className="text-xs text-white/60 text-center">
+          <View style={{ paddingHorizontal: 24, marginTop: 24, marginBottom: 48 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: "rgba(255,255,255,0.6)",
+                textAlign: "center",
+              }}
+            >
               Your number is used only for secure login & verification.
             </Text>
           </View>

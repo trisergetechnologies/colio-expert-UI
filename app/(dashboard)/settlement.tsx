@@ -1,4 +1,5 @@
-// app/(dashboard)/settlement.tsx
+// app/(dashboard)/settlement.tsx  (PRODUCTION SAFE — NO NATIVEWIND)
+
 import GradientBackground from "@/components/Gradientbackground";
 import { getToken } from "@/utils/tokenHelper";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,15 +7,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const API_BASE_URL = "https://api.colio.in/api";
+const { width } = Dimensions.get("window");
 
 // ================= TYPES =================
 interface BankSnapshot {
@@ -79,29 +83,29 @@ const STATUS_CONFIG: Record<
 > = {
   pending: {
     color: "#f59e0b",
-    bgColor: "bg-amber-500/20",
-    borderColor: "border-amber-500/30",
+    bgColor: "rgba(245,158,11,0.2)",
+    borderColor: "rgba(245,158,11,0.3)",
     icon: "time-outline",
     label: "Pending",
   },
   approved: {
     color: "#3b82f6",
-    bgColor: "bg-blue-500/20",
-    borderColor: "border-blue-500/30",
+    bgColor: "rgba(59,130,246,0.2)",
+    borderColor: "rgba(59,130,246,0.3)",
     icon: "checkmark-circle-outline",
     label: "Approved",
   },
   settled: {
     color: "#22c55e",
-    bgColor: "bg-green-500/20",
-    borderColor: "border-green-500/30",
+    bgColor: "rgba(34,197,94,0.2)",
+    borderColor: "rgba(34,197,94,0.3)",
     icon: "checkmark-done-circle-outline",
     label: "Settled",
   },
   rejected: {
     color: "#ef4444",
-    bgColor: "bg-red-500/20",
-    borderColor: "border-red-500/30",
+    bgColor: "rgba(239,68,68,0.2)",
+    borderColor: "rgba(239,68,68,0.3)",
     icon: "close-circle-outline",
     label: "Rejected",
   },
@@ -129,7 +133,6 @@ export default function SettlementScreen() {
   const [selectedFilter, setSelectedFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Ref to track if component is mounted
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -205,14 +208,12 @@ export default function SettlementScreen() {
     }
   };
 
-  // ================= INITIAL FETCH & FILTER CHANGE =================
   useEffect(() => {
     setCurrentPage(1);
     setSettlements([]);
     fetchSettlements(1, false, selectedFilter);
   }, [selectedFilter]);
 
-  // ================= HANDLERS =================
   const handleRefresh = () => {
     setIsRefreshing(true);
     setCurrentPage(1);
@@ -260,28 +261,32 @@ export default function SettlementScreen() {
     const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
 
     return (
-      <TouchableOpacity activeOpacity={0.8} className="mx-4 mb-4">
+      <TouchableOpacity activeOpacity={0.8} style={styles.cardWrapper}>
         <LinearGradient
           colors={["#ffffff", "#fefefe"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ borderRadius: 16 }}
-          className="shadow-lg"
+          style={styles.cardGradient}
         >
-          <View className="p-4">
-            {/* Header Row: Amount & Status */}
-            <View className="flex-row items-center justify-between mb-3">
+          <View style={styles.cardContent}>
+            <View style={styles.cardHeaderRow}>
               <View>
-                <Text className="text-2xl font-bold text-gray-900">
+                <Text style={styles.amountText}>
                   {formatAmount(item.amount, item.currency)}
                 </Text>
-                <Text className="text-xs text-gray-500 mt-0.5">
+                <Text style={styles.dateText}>
                   {formatDate(item.createdAt)}
                 </Text>
               </View>
 
               <View
-                className={`flex-row items-center px-3 py-1.5 rounded-full ${statusConfig.bgColor} border ${statusConfig.borderColor}`}
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: statusConfig.bgColor,
+                    borderColor: statusConfig.borderColor,
+                  },
+                ]}
               >
                 <Ionicons
                   name={statusConfig.icon}
@@ -289,104 +294,89 @@ export default function SettlementScreen() {
                   color={statusConfig.color}
                 />
                 <Text
-                  className="ml-1.5 text-xs font-semibold"
-                  style={{ color: statusConfig.color }}
+                  style={[
+                    styles.statusLabel,
+                    { color: statusConfig.color },
+                  ]}
                 >
                   {statusConfig.label}
                 </Text>
               </View>
             </View>
 
-            {/* Divider */}
-            <View className="h-[1px] bg-gray-100 my-3" />
+            <View style={styles.divider} />
 
-            {/* Bank Details */}
-            <View className="mb-3">
-              <View className="flex-row items-center mb-2">
+            <View style={styles.bankSection}>
+              <View style={styles.bankRow}>
                 <Ionicons name="business-outline" size={16} color="#6b7280" />
-                <Text className="ml-2 text-sm font-medium text-gray-700">
+                <Text style={styles.bankName}>
                   {item.bankSnapshot?.bankName || "Bank Name N/A"}
                 </Text>
               </View>
 
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
+              <View style={styles.accountRow}>
+                <View style={styles.accountLeft}>
                   <Ionicons name="card-outline" size={16} color="#6b7280" />
-                  <Text className="ml-2 text-sm text-gray-600">
+                  <Text style={styles.accountText}>
                     A/C: {maskAccountNumber(item.bankSnapshot?.accountNumber)}
                   </Text>
                 </View>
-                <Text className="text-xs text-gray-500">
+                <Text style={styles.ifscText}>
                   IFSC: {item.bankSnapshot?.ifscCode || "N/A"}
                 </Text>
               </View>
 
               {item.bankSnapshot?.upiId && (
-                <View className="flex-row items-center mt-1.5">
+                <View style={styles.upiRow}>
                   <Ionicons name="qr-code-outline" size={16} color="#6b7280" />
-                  <Text className="ml-2 text-sm text-gray-600">
+                  <Text style={styles.upiText}>
                     UPI: {item.bankSnapshot.upiId}
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* UTR (if approved/settled) */}
             {item.utr && (
-              <View className="bg-green-50 rounded-lg px-3 py-2 mb-3">
-                <View className="flex-row items-center">
-                  <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                  <Text className="ml-2 text-xs text-green-700 font-medium">
-                    UTR: {item.utr}
-                  </Text>
-                </View>
+              <View style={styles.utrBox}>
+                <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                <Text style={styles.utrText}>UTR: {item.utr}</Text>
               </View>
             )}
 
-            {/* Rejection Reason */}
             {item.status === "rejected" && item.rejectionReason && (
-              <View className="bg-red-50 rounded-lg px-3 py-2 mb-3">
-                <View className="flex-row items-start">
-                  <Ionicons
-                    name="alert-circle"
-                    size={16}
-                    color="#ef4444"
-                    style={{ marginTop: 2 }}
-                  />
-                  <Text className="ml-2 text-xs text-red-700 flex-1">
-                    {item.rejectionReason}
-                  </Text>
-                </View>
+              <View style={styles.rejectionBox}>
+                <Ionicons
+                  name="alert-circle"
+                  size={16}
+                  color="#ef4444"
+                  style={{ marginTop: 2 }}
+                />
+                <Text style={styles.rejectionText}>
+                  {item.rejectionReason}
+                </Text>
               </View>
             )}
 
-            {/* Settlement Period */}
             {item.settlementPeriod?.from && item.settlementPeriod?.to && (
-              <View className="bg-gray-50 rounded-lg px-3 py-2 mb-3">
-                <Text className="text-xs text-gray-500 mb-1">
-                  Settlement Period
-                </Text>
-                <Text className="text-xs text-gray-700 font-medium">
+              <View style={styles.periodBox}>
+                <Text style={styles.periodLabel}>Settlement Period</Text>
+                <Text style={styles.periodValue}>
                   {formatDate(item.settlementPeriod.from)} -{" "}
                   {formatDate(item.settlementPeriod.to)}
                 </Text>
               </View>
             )}
 
-            {/* Footer: Generated By & Remarks */}
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
+            <View style={styles.footerRow}>
+              <View style={styles.generatedByRow}>
                 <Ionicons name="cog-outline" size={12} color="#9ca3af" />
-                <Text className="ml-1 text-xs text-gray-400 capitalize">
+                <Text style={styles.generatedByText}>
                   {item.generatedBy || "system"}
                 </Text>
               </View>
 
               {item.remarks && (
-                <Text
-                  className="text-xs text-gray-500 flex-1 ml-4"
-                  numberOfLines={1}
-                >
+                <Text style={styles.remarksText} numberOfLines={1}>
                   {item.remarks}
                 </Text>
               )}
@@ -397,109 +387,17 @@ export default function SettlementScreen() {
     );
   };
 
-  // ================= RENDER EMPTY STATE =================
-  const renderEmptyState = () => (
-    <View className="flex-1 items-center justify-center py-20">
-      <LinearGradient
-        colors={["#fdf2f8", "#fce7f3"]}
-        style={{ borderRadius: 100 }}
-        className="p-6 mb-4"
-      >
-        <Ionicons name="wallet-outline" size={48} color="#db2777" />
-      </LinearGradient>
-      <Text className="text-gray-800 text-lg font-semibold mb-1">
-        No Settlements Found
-      </Text>
-      <Text className="text-gray-500 text-sm text-center px-8">
-        {selectedFilter
-          ? `No ${selectedFilter} settlements yet.`
-          : "Your settlement history will appear here."}
-      </Text>
-      <TouchableOpacity
-        onPress={handleRefresh}
-        className="mt-4 px-6 py-2 bg-pink-600 rounded-full"
-      >
-        <Text className="text-white font-medium">Refresh</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // ================= RENDER LOADING =================
-  const renderLoading = () => (
-    <View className="flex-1 items-center justify-center py-20">
-      <ActivityIndicator size="large" color="#db2777" />
-      <Text className="text-gray-500 mt-3">Loading settlements...</Text>
-    </View>
-  );
-
-  // ================= RENDER ERROR =================
-  const renderError = () => (
-    <View className="flex-1 items-center justify-center py-20 px-6">
-      <Ionicons name="cloud-offline-outline" size={48} color="#ef4444" />
-      <Text className="text-gray-800 text-lg font-semibold mt-4 mb-1">
-        Something went wrong
-      </Text>
-      <Text className="text-gray-500 text-sm text-center mb-4">{error}</Text>
-      <TouchableOpacity
-        onPress={handleRefresh}
-        className="px-6 py-2 bg-pink-600 rounded-full"
-      >
-        <Text className="text-white font-medium">Try Again</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // ================= RENDER FOOTER =================
-  const renderFooter = () => {
-    if (!isLoadingMore) return null;
-    return (
-      <View className="py-4 items-center">
-        <ActivityIndicator size="small" color="#db2777" />
-        <Text className="text-gray-500 text-xs mt-1">Loading more...</Text>
-      </View>
-    );
-  };
-
-  // ================= RENDER FILTER ITEM =================
-  const renderFilterItem = ({ item }: { item: (typeof FILTER_OPTIONS)[0] }) => (
-    <TouchableOpacity
-      onPress={() => handleFilterChange(item.value)}
-      className="mr-2"
-    >
-      <LinearGradient
-        colors={
-          selectedFilter === item.value
-            ? ["#db2777", "#be185d"]
-            : ["#f3f4f6", "#e5e7eb"]
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 20 }}
-      >
-        <View className="px-4 py-2">
-          <Text
-            className={`text-sm font-medium ${
-              selectedFilter === item.value ? "text-white" : "text-gray-700"
-            }`}
-          >
-            {item.label}
-          </Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-
   // ================= MAIN RENDER =================
   return (
     <GradientBackground>
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between px-4 pt-14 pb-3 shadow-md rounded-b-2xl backdrop-blur-md">
+        <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
 
-          <Text className="text-lg font-bold text-black">Settlements</Text>
+          <Text style={styles.headerTitle}>Settlements</Text>
 
           <TouchableOpacity onPress={handleRefresh}>
             <Ionicons name="refresh-outline" size={22} color="#000" />
@@ -508,34 +406,29 @@ export default function SettlementScreen() {
 
         {/* Summary Card */}
         {pagination && pagination.totalRecords > 0 && (
-          <View className="mx-4 mt-4">
+          <View style={styles.summaryWrapper}>
             <LinearGradient
               colors={["#db2777", "#be185d"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ borderRadius: 16 }}
-              className="shadow-lg"
+              style={styles.summaryCard}
             >
-              <View className="p-4">
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-white/70 text-xs mb-1">
-                      Total Records
+              <View style={styles.summaryContent}>
+                <View>
+                  <Text style={styles.summaryLabel}>Total Records</Text>
+                  <Text style={styles.summaryValue}>
+                    {pagination.totalRecords}
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.summaryLabel}>
+                    Page {pagination.page} of {pagination.totalPages}
+                  </Text>
+                  <View style={styles.summaryRow}>
+                    <Ionicons name="document-text" size={20} color="#fff" />
+                    <Text style={styles.summaryLoaded}>
+                      {settlements.length} loaded
                     </Text>
-                    <Text className="text-white text-2xl font-bold">
-                      {pagination.totalRecords}
-                    </Text>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-white/70 text-xs mb-1">
-                      Page {pagination.page} of {pagination.totalPages}
-                    </Text>
-                    <View className="flex-row items-center">
-                      <Ionicons name="document-text" size={20} color="#fff" />
-                      <Text className="text-white text-sm ml-1">
-                        {settlements.length} loaded
-                      </Text>
-                    </View>
                   </View>
                 </View>
               </View>
@@ -543,23 +436,59 @@ export default function SettlementScreen() {
           </View>
         )}
 
-        {/* Filter Tabs */}
-        <View className="mt-4 mb-2">
+        {/* Filters */}
+        <View style={{ marginVertical: 8 }}>
           <FlatList
             data={FILTER_OPTIONS}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             keyExtractor={(item) => item.value || "all"}
-            renderItem={renderFilterItem}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => handleFilterChange(item.value)}
+                style={{ marginRight: 8 }}
+              >
+                <LinearGradient
+                  colors={
+                    selectedFilter === item.value
+                      ? ["#db2777", "#be185d"]
+                      : ["#f3f4f6", "#e5e7eb"]
+                  }
+                  style={styles.filterButton}
+                >
+                  <Text
+                    style={
+                      selectedFilter === item.value
+                        ? styles.filterTextActive
+                        : styles.filterText
+                    }
+                  >
+                    {item.label}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           />
         </View>
 
-        {/* Content */}
         {isLoading && !isRefreshing ? (
-          renderLoading()
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#db2777" />
+            <Text style={styles.loadingText}>Loading settlements...</Text>
+          </View>
         ) : error && settlements.length === 0 ? (
-          renderError()
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={48} color="#ef4444" />
+            <Text style={styles.errorTitle}>Something went wrong</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <FlatList
             data={settlements}
@@ -570,8 +499,11 @@ export default function SettlementScreen() {
               paddingBottom: 20,
               flexGrow: 1,
             }}
-            ListEmptyComponent={renderEmptyState}
-            ListFooterComponent={renderFooter}
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Text>No Settlements Found</Text>
+              </View>
+            }
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -586,11 +518,163 @@ export default function SettlementScreen() {
           />
         )}
 
-        {/* Footer Version */}
-        <View className="items-center py-3 border-t border-gray-100">
-          <Text className="text-pink-600 text-xs">Colio.V-1.0.0</Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Colio.V-1.0.0</Text>
         </View>
       </View>
     </GradientBackground>
   );
 }
+
+// ================= STYLES =================
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#000" },
+
+  cardWrapper: { marginHorizontal: 16, marginBottom: 16 },
+  cardGradient: { borderRadius: 16 },
+  cardContent: { padding: 16 },
+
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  amountText: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  dateText: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusLabel: { marginLeft: 6, fontSize: 12, fontWeight: "600" },
+
+  divider: { height: 1, backgroundColor: "#e5e7eb", marginVertical: 8 },
+
+  bankSection: { marginBottom: 8 },
+  bankRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  bankName: { marginLeft: 8, fontSize: 14, color: "#374151" },
+
+  accountRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  accountLeft: { flexDirection: "row", alignItems: "center" },
+  accountText: { marginLeft: 8, fontSize: 14, color: "#4b5563" },
+  ifscText: { fontSize: 12, color: "#6b7280" },
+
+  upiRow: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  upiText: { marginLeft: 8, fontSize: 14, color: "#4b5563" },
+
+  utrBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ecfdf5",
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  utrText: { marginLeft: 8, fontSize: 12, color: "#166534" },
+
+  rejectionBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#fef2f2",
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  rejectionText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: "#7f1d1d",
+    flex: 1,
+  },
+
+  periodBox: {
+    backgroundColor: "#f3f4f6",
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  periodLabel: { fontSize: 12, color: "#6b7280", marginBottom: 2 },
+  periodValue: { fontSize: 12, fontWeight: "600", color: "#374151" },
+
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  generatedByRow: { flexDirection: "row", alignItems: "center" },
+  generatedByText: {
+    marginLeft: 4,
+    fontSize: 10,
+    color: "#9ca3af",
+    textTransform: "capitalize",
+  },
+  remarksText: {
+    fontSize: 10,
+    color: "#6b7280",
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  summaryWrapper: { marginHorizontal: 16, marginTop: 12 },
+  summaryCard: { borderRadius: 16 },
+  summaryContent: {
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  summaryLabel: { fontSize: 12, color: "rgba(255,255,255,0.7)" },
+  summaryValue: { fontSize: 22, fontWeight: "700", color: "#fff" },
+  summaryRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  summaryLoaded: { color: "#fff", marginLeft: 6, fontSize: 12 },
+
+  filterButton: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  filterText: { fontSize: 14, color: "#374151" },
+  filterTextActive: { fontSize: 14, color: "#fff", fontWeight: "600" },
+
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { marginTop: 8, color: "#6b7280" },
+
+  errorTitle: { fontSize: 18, fontWeight: "700", marginTop: 8 },
+  errorText: { fontSize: 14, color: "#6b7280", marginVertical: 8 },
+
+  retryButton: {
+    backgroundColor: "#db2777",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  retryText: { color: "#fff", fontWeight: "600" },
+
+  footer: {
+    alignItems: "center",
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  footerText: { color: "#db2777", fontSize: 12 },
+});

@@ -15,16 +15,28 @@ const Section = ({
   title: string;
   children: React.ReactNode;
 }) => (
-  <View className="mb-6">
-    <View className="flex-row items-center mb-2">
-      <View className="w-8 h-8 rounded-full bg-[#ff9d76] items-center justify-center mr-2">
+  <View style={{ marginBottom: 24 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: "#ff9d76",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 8,
+        }}
+      >
         <Ionicons name={icon} size={16} color="#fff" />
       </View>
-      <ThemedText className="text-base font-bold text-black">
+      <ThemedText style={{ fontSize: 16, fontWeight: "700", color: "#000" }}>
         {title}
       </ThemedText>
     </View>
-    <ThemedText className="text-black/70 leading-6">{children}</ThemedText>
+    <ThemedText style={{ color: "rgba(0,0,0,0.7)", lineHeight: 22 }}>
+      {children}
+    </ThemedText>
   </View>
 );
 
@@ -34,35 +46,77 @@ export default function PrivacyPolicyScreen() {
   return (
     <GradientBackground>
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 90 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="flex-row items-center px-4 pt-14 pb-3">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingTop: 56,
+            paddingBottom: 12,
+          }}
+        >
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
-          <ThemedText className="text-lg font-bold ml-3 text-black">
+          <ThemedText
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              marginLeft: 12,
+              color: "#000",
+            }}
+          >
             Privacy Policy
           </ThemedText>
         </View>
 
-        {/* Content */}
+        {/* Content Card */}
         <Animated.View
           entering={FadeInDown.delay(80).springify()}
-          className="mx-4 mt-4 bg-white/90 rounded-2xl p-5 shadow-sm"
+          style={{
+            marginHorizontal: 16,
+            marginTop: 16,
+            backgroundColor: "rgba(255,255,255,0.9)",
+            borderRadius: 16,
+            padding: 20,
+            shadowColor: "#000",
+            shadowOpacity: 0.05,
+            shadowRadius: 6,
+            elevation: 3,
+          }}
         >
-          <ThemedText className="text-lg font-bold text-black mb-2">
+          <ThemedText
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              color: "#000",
+              marginBottom: 8,
+            }}
+          >
             Your Privacy Matters
           </ThemedText>
-          <ThemedText className="text-black/70 leading-6 mb-6">
+
+          <ThemedText
+            style={{
+              color: "rgba(0,0,0,0.7)",
+              lineHeight: 22,
+              marginBottom: 24,
+            }}
+          >
             Colio is committed to protecting your personal information. This
             Privacy Policy explains how your data is collected, used, and
             safeguarded when you operate as a host on the platform.
           </ThemedText>
 
-          <Section icon="document-text-outline" title="Information We Collect">
+          <Section
+            icon="document-text-outline"
+            title="Information We Collect"
+          >
             We may collect personal details such as your name, profile
             information, contact details, session activity, ratings, and usage
             metrics required to operate the platform efficiently.
@@ -98,7 +152,14 @@ export default function PrivacyPolicyScreen() {
             data, subject to applicable laws and platform policies.
           </Section>
 
-          <ThemedText className="text-black/50 text-xs mt-6 text-center">
+          <ThemedText
+            style={{
+              color: "rgba(0,0,0,0.5)",
+              fontSize: 12,
+              marginTop: 24,
+              textAlign: "center",
+            }}
+          >
             Last updated: January 2026
           </ThemedText>
         </Animated.View>

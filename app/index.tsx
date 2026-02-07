@@ -20,14 +20,14 @@ export default function IndexScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-   const { isAuthenticated, isAuthLoading } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
 
-   // 🚫 Redirect authenticated users to /home (or tabs)
-   useEffect(() => {
-     if (!isAuthLoading && isAuthenticated) {
-       router.replace("/(tabs)/home");
-     }
-   }, [isAuthLoading, isAuthenticated]);
+  // 🚫 Redirect authenticated users to /home (or tabs)
+  useEffect(() => {
+    if (!isAuthLoading && isAuthenticated) {
+      router.replace("/(tabs)/home");
+    }
+  }, [isAuthLoading, isAuthenticated]);
 
   useEffect(() => {
     console.log('=== FIREBASE DEBUG (EXPERT APP) ===');
@@ -44,14 +44,18 @@ export default function IndexScreen() {
   }, []);
 
   useEffect(() => {
-    // Initial fade in
-    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
 
     const interval = setInterval(() => {
       Animated.sequence([
         Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
         Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
+
       setCurrentIndex((prev) => (prev + 1) % slogans.length);
     }, 3000);
 
@@ -60,35 +64,56 @@ export default function IndexScreen() {
 
   return (
     <GradientBackground>
-      <View className="flex-1 justify-between px-6 py-12">
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "space-between",
+          paddingHorizontal: 24,
+          paddingVertical: 48,
+        }}
+      >
         {/* Brand Name */}
-        <View className="items-center mt-10">
-            <Text
-              style={{
-                fontFamily: "Pacifico_400Regular",
-                fontSize: 50,
-                color: "black",
-                letterSpacing: 1,
-              }}
-            >
-              Colio
-            </Text>
-        
+        <View style={{ alignItems: "center", marginTop: 40 }}>
+          <Text
+            style={{
+              fontFamily: "Pacifico_400Regular",
+              fontSize: 50,
+              color: "black",
+              letterSpacing: 1,
+            }}
+          >
+            Colio
+          </Text>
 
-          <Text className="text-lg font-semibold text-black px-6 text-center">
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "600",
+              color: "black",
+              paddingHorizontal: 24,
+              textAlign: "center",
+            }}
+          >
             The Future of Anonymous Connections & Vibrant Conversations
           </Text>
         </View>
 
         {/* Rotating Slogan Banner */}
-        <View className="items-center justify-center flex-1">
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: 10,
+          }}
+        >
           <Animated.Text
             style={{
               opacity: fadeAnim,
               fontFamily: "Pacifico_400Regular",
               fontSize: 60,
-              fontWeight: 600,
-              color: "#db2777", // pink-400
+              fontWeight: "600",
+              color: "#db2777",
               textAlign: "center",
               paddingHorizontal: 10,
             }}
@@ -98,31 +123,71 @@ export default function IndexScreen() {
         </View>
 
         {/* Get Started Button */}
-        <View className="items-center pb-10">
+        <View
+          style={{
+            width: "100%",
+            alignItems: "center",
+            paddingBottom: 40,
+          }}
+        >
           <TouchableOpacity
             onPress={() => router.push("/(auth)/auth")}
             activeOpacity={0.9}
-            className="w-full rounded-2xl shadow-lg overflow-hidden"
+            style={{
+              width: "100%",
+              borderRadius: 16,
+              overflow: "hidden",
+              elevation: 4,
+            }}
           >
             <LinearGradient
               colors={["#db2777", "#db2777"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              className="py-4 rounded-2xl"
+              style={{
+                paddingVertical: 16,
+                borderRadius: 16,
+              }}
             >
               <Text
-                className="text-center text-white text-lg font-extrabold tracking-wide"
-                style={{ fontFamily: "Poppins_600SemiBold" }}
+                style={{
+                  textAlign: "center",
+                  color: "white",
+                  fontSize: 18,
+                  fontWeight: "800",
+                  letterSpacing: 0.5,
+                  fontFamily: "Poppins_600SemiBold",
+                }}
               >
                 Get Started
               </Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text className="text-xs text-black mt-4 text-center leading-5">
+          <Text
+            style={{
+              fontSize: 12,
+              color: "black",
+              marginTop: 16,
+              textAlign: "center",
+              lineHeight: 20,
+            }}
+          >
             By tapping you agree to our{" "}
-            <Text onPress={()=> router.push('/terms')} className="text-green-600 underline">Terms of Use</Text> and{" "}
-            <Text onPress={()=> router.push('/privacy')} className="text-green-600">Privacy Policy</Text>.{"\n"}
+            <Text
+              onPress={() => router.push("/terms")}
+              style={{ color: "#16a34a", textDecorationLine: "underline" }}
+            >
+              Terms of Use
+            </Text>{" "}
+            and{" "}
+            <Text
+              onPress={() => router.push("/privacy")}
+              style={{ color: "#16a34a" }}
+            >
+              Privacy Policy
+            </Text>
+            .{"\n"}
             All your details are protected, safe, and secure.
           </Text>
         </View>

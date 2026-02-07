@@ -21,7 +21,7 @@ import {
 const API_BASE_URL = "https://api.colio.in/api";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ================= TYPES =================
+/* ================ TYPES (UNCHANGED) ================ */
 interface UserInfo {
   _id: string;
   name: string;
@@ -60,7 +60,7 @@ interface Pagination {
   hasPrevPage: boolean;
 }
 
-// ================= TABS CONFIG =================
+/* ================ TABS ================ */
 const TABS = [
   { key: "all", label: "All", icon: "apps-outline" as const },
   { key: "voice", label: "Voice", icon: "call-outline" as const },
@@ -68,10 +68,9 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
-
 const TAB_WIDTH = (SCREEN_WIDTH - 32) / TABS.length;
 
-// ================= STATUS CONFIG =================
+/* ================ STATUS CONFIG ================ */
 const STATUS_CONFIG: Record<
   string,
   {
@@ -119,7 +118,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// ================= TYPE CONFIG =================
+/* ================ TYPE CONFIG ================ */
 const TYPE_CONFIG: Record<
   string,
   {
@@ -148,7 +147,7 @@ export default function SessionsScreen() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
-  // ================= STATE =================
+  /* ================ STATE ================ */
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -158,7 +157,7 @@ export default function SessionsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ================= REFS =================
+  /* ================ REFS ================ */
   const isMounted = useRef(true);
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
   const tabScaleAnims = useRef(TABS.map(() => new Animated.Value(1))).current;
@@ -170,9 +169,8 @@ export default function SessionsScreen() {
     };
   }, []);
 
-  // ================= ANIMATE TAB =================
+  /* ================ ANIMATE TAB ================ */
   const animateToTab = (index: number) => {
-    // Animate indicator slide
     Animated.spring(tabIndicatorAnim, {
       toValue: index * TAB_WIDTH,
       useNativeDriver: true,
@@ -180,7 +178,6 @@ export default function SessionsScreen() {
       friction: 8,
     }).start();
 
-    // Bounce effect on active tab
     Animated.sequence([
       Animated.timing(tabScaleAnims[index], {
         toValue: 0.9,
@@ -197,7 +194,7 @@ export default function SessionsScreen() {
     ]).start();
   };
 
-  // ================= FETCH SESSIONS =================
+  /* ================ FETCH SESSIONS ================ */
   const fetchSessions = async (
     page: number = 1,
     append: boolean = false,
@@ -205,11 +202,9 @@ export default function SessionsScreen() {
   ) => {
     if (!isMounted.current) return;
 
-    if (page === 1 && !append) {
-      setIsLoading(true);
-    } else if (append) {
-      setIsLoadingMore(true);
-    }
+    if (page === 1 && !append) setIsLoading(true);
+    else if (append) setIsLoadingMore(true);
+
     setError(null);
 
     const queryParams = new URLSearchParams({
@@ -217,10 +212,10 @@ export default function SessionsScreen() {
       limit: "15",
     });
 
-    // Add type filter - API expects lowercase
     if (type !== "all") {
       queryParams.append("type", type);
     }
+
     const token = await getToken();
 
     fetch(`${API_BASE_URL}/user/sessions?${queryParams.toString()}`, {
@@ -244,18 +239,14 @@ export default function SessionsScreen() {
           setCurrentPage(data.data.pagination.currentPage);
         } else {
           setError(data.message || "Failed to fetch sessions");
-          if (!append) {
-            setSessions([]);
-          }
+          if (!append) setSessions([]);
         }
       })
       .catch((err) => {
         console.error("Fetch sessions error:", err);
         if (isMounted.current) {
           setError("Network error. Please try again.");
-          if (!append) {
-            setSessions([]);
-          }
+          if (!append) setSessions([]);
         }
       })
       .finally(() => {
@@ -267,7 +258,7 @@ export default function SessionsScreen() {
       });
   };
 
-  // ================= INITIAL FETCH =================
+  /* ================ INITIAL FETCH ================ */
   useEffect(() => {
     if (isAuthenticated) {
       setCurrentPage(1);
@@ -276,7 +267,7 @@ export default function SessionsScreen() {
     }
   }, [activeTab, isAuthenticated]);
 
-  // ================= HANDLERS =================
+  /* ================ HANDLERS ================ */
   const handleTabPress = (tabKey: TabKey, index: number) => {
     if (tabKey === activeTab) return;
     animateToTab(index);
@@ -297,7 +288,7 @@ export default function SessionsScreen() {
     }
   };
 
-  // ================= FORMAT HELPERS =================
+  /* ================ FORMAT HELPERS ================ */
   const formatDuration = (seconds: number) => {
     if (!seconds || seconds <= 0) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -323,11 +314,6 @@ export default function SessionsScreen() {
     });
   };
 
-  const formatAmount = (amount: number) => {
-    return `₹${amount.toLocaleString("en-IN")}`;
-  };
-
-  // ================= GET OTHER PARTY =================
   const getOtherParty = (session: Session): UserInfo => {
     if (user?.userId === session.customer?._id) {
       return session.consultant;
@@ -335,14 +321,19 @@ export default function SessionsScreen() {
     return session.customer;
   };
 
-  // ================= RENDER TAB BAR =================
+  /* ================ RENDER TAB BAR ================ */
   const renderTabBar = () => (
-    <View className="mx-4 mt-4 mb-3">
+    <View style={{ marginHorizontal: 16, marginTop: 16, marginBottom: 12 }}>
       <View
-        className="rounded-2xl p-1.5 flex-row relative overflow-hidden"
-        style={{ backgroundColor: "rgba(0,0,0,0.06)" }}
+        style={{
+          borderRadius: 16,
+          padding: 6,
+          flexDirection: "row",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: "rgba(0,0,0,0.06)",
+        }}
       >
-        {/* Animated Sliding Indicator */}
         <Animated.View
           style={{
             position: "absolute",
@@ -369,7 +360,6 @@ export default function SessionsScreen() {
           />
         </Animated.View>
 
-        {/* Tab Buttons */}
         {TABS.map((tab, index) => {
           const isActive = activeTab === tab.key;
           return (
@@ -377,8 +367,13 @@ export default function SessionsScreen() {
               key={tab.key}
               onPress={() => handleTabPress(tab.key, index)}
               activeOpacity={0.8}
-              style={{ width: TAB_WIDTH - 4, paddingVertical: 12 }}
-              className="items-center justify-center z-10"
+              style={{
+                width: TAB_WIDTH - 4,
+                paddingVertical: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
             >
               <Animated.View
                 style={{
@@ -410,17 +405,18 @@ export default function SessionsScreen() {
     </View>
   );
 
-  // ================= RENDER SESSION CARD =================
+  /* ================ RENDER SESSION CARD ================ */
   const renderSessionCard = ({ item }: { item: Session }) => {
     const otherParty = getOtherParty(item);
     const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.ended;
     const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.voice;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} className="mx-4 mb-4">
+      <TouchableOpacity activeOpacity={0.9} style={{ marginHorizontal: 16, marginBottom: 16 }}>
         <View
-          className="rounded-3xl overflow-hidden"
           style={{
+            borderRadius: 24,
+            overflow: "hidden",
             backgroundColor: "#fff",
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 4 },
@@ -429,67 +425,95 @@ export default function SessionsScreen() {
             elevation: 5,
           }}
         >
-          {/* Card Header with Type Indicator */}
+          {/* HEADER */}
           <View
-            className="flex-row items-center justify-between px-4 py-3"
-            style={{ backgroundColor: typeConfig.bgColor }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              backgroundColor: typeConfig.bgColor,
+            }}
           >
-            <View className="flex-row items-center">
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
               <View
-                className="w-8 h-8 rounded-full items-center justify-center mr-2"
-                style={{ backgroundColor: typeConfig.color }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 8,
+                  backgroundColor: typeConfig.color,
+                }}
               >
                 <Ionicons name={typeConfig.icon} size={16} color="#fff" />
               </View>
               <View>
-                <Text
-                  className="font-bold text-sm"
-                  style={{ color: typeConfig.color }}
-                >
+                <Text style={{ fontWeight: "700", fontSize: 14, color: typeConfig.color }}>
                   {typeConfig.label} Session
                 </Text>
-                <Text className="text-xs text-black/50">
+                <Text style={{ fontSize: 12, color: "rgba(0,0,0,0.5)" }}>
                   {formatDate(item.createdAt)} • {formatTime(item.createdAt)}
                 </Text>
               </View>
             </View>
 
-            {/* Status Badge */}
             <View
-              className="px-3 py-1.5 rounded-full flex-row items-center"
-              style={{ backgroundColor: statusConfig.bgColor }}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 999,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: statusConfig.bgColor,
+              }}
             >
-              <Ionicons
-                name={statusConfig.icon}
-                size={12}
-                color={statusConfig.color}
-              />
+              <Ionicons name={statusConfig.icon} size={12} color={statusConfig.color} />
               <Text
-                className="text-xs font-semibold ml-1"
-                style={{ color: statusConfig.color }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  marginLeft: 4,
+                  color: statusConfig.color,
+                }}
               >
                 {statusConfig.label}
               </Text>
             </View>
           </View>
 
-          {/* User Info Section */}
-          <View className="px-4 py-4">
-            <View className="flex-row items-center">
-              <View className="relative">
+          {/* USER INFO */}
+          <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ position: "relative" }}>
                 <Image
                   source={{
                     uri:
                       otherParty?.avatar ||
                       "https://cdn-icons-png.flaticon.com/512/149/149071.png",
                   }}
-                  className="w-14 h-14 rounded-2xl"
-                  style={{ borderWidth: 2, borderColor: typeConfig.bgColor }}
-                />
-                {/* Network indicator dot */}
-                <View
-                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full items-center justify-center border-2 border-white"
                   style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
+                    borderWidth: 2,
+                    borderColor: typeConfig.bgColor,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    bottom: -4,
+                    right: -4,
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 2,
+                    borderColor: "#fff",
                     backgroundColor: "#22c55e",
                   }}
                 >
@@ -497,76 +521,95 @@ export default function SessionsScreen() {
                 </View>
               </View>
 
-              <View className="flex-1 ml-3">
-                <Text
-                  className="font-bold text-black text-base"
-                  numberOfLines={1}
-                >
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontWeight: "700", fontSize: 16, color: "#000" }} numberOfLines={1}>
                   {otherParty?.name || "Unknown User"}
                 </Text>
-                <Text className="text-black/50 text-sm mt-0.5">
+                <Text style={{ fontSize: 14, color: "rgba(0,0,0,0.5)", marginTop: 2 }}>
                   Colio Connection
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Stats Row */}
+          {/* STATS ROW */}
           <View
-            className="flex-row px-4 py-3 border-t"
-            style={{ borderTopColor: "rgba(0,0,0,0.05)" }}
+            style={{
+              flexDirection: "row",
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderTopWidth: 1,
+              borderTopColor: "rgba(0,0,0,0.05)",
+            }}
           >
-            {/* Duration */}
-            <View className="flex-1 flex-row items-center">
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
               <View
-                className="w-9 h-9 rounded-xl items-center justify-center mr-2"
-                style={{ backgroundColor: "#fef3c7" }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 8,
+                  backgroundColor: "#fef3c7",
+                }}
               >
                 <Ionicons name="time-outline" size={18} color="#f59e0b" />
               </View>
               <View>
-                <Text className="text-xs text-black/40">Duration</Text>
-                <Text className="font-bold text-sm text-black">
+                <Text style={{ fontSize: 12, color: "rgba(0,0,0,0.4)" }}>Duration</Text>
+                <Text style={{ fontWeight: "700", fontSize: 14, color: "#000" }}>
                   {formatDuration(item.totalDurationSeconds)}
                 </Text>
               </View>
             </View>
 
-            {/* Status Icon */}
-            <View className="items-center justify-center">
-              {item.autoEnded && (
-                <View
-                  className="flex-row items-center px-2 py-1 rounded-lg"
-                  style={{ backgroundColor: "#fef3c7" }}
-                >
-                  <Ionicons name="alert-circle" size={12} color="#f59e0b" />
-                  <Text className="text-xs text-amber-600 ml-1 font-medium">
-                    Auto
-                  </Text>
-                </View>
-              )}
-            </View>
+            {item.autoEnded && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                  backgroundColor: "#fef3c7",
+                }}
+              >
+                <Ionicons name="alert-circle" size={12} color="#f59e0b" />
+                <Text style={{ fontSize: 12, color: "#d97706", marginLeft: 4, fontWeight: "500" }}>
+                  Auto
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Time Range Footer */}
+          {/* FOOTER TIME RANGE */}
           {item.startedAt && item.endedAt && (
             <View
-              className="flex-row items-center justify-between px-4 py-2.5"
-              style={{ backgroundColor: "rgba(0,0,0,0.02)" }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                backgroundColor: "rgba(0,0,0,0.02)",
+              }}
             >
-              <View className="flex-row items-center">
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Ionicons name="play-circle" size={14} color="#22c55e" />
-                <Text className="text-xs text-black/50 ml-1">
+                <Text style={{ fontSize: 12, color: "rgba(0,0,0,0.5)", marginLeft: 4 }}>
                   {formatTime(item.startedAt)}
                 </Text>
               </View>
-              <View className="flex-row items-center">
-                <View className="w-8 h-[1px] bg-black/10 mx-2" />
+
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ width: 32, height: 1, backgroundColor: "rgba(0,0,0,0.1)" }} />
                 <Ionicons name="arrow-forward" size={12} color="#9ca3af" />
-                <View className="w-8 h-[1px] bg-black/10 mx-2" />
+                <View style={{ width: 32, height: 1, backgroundColor: "rgba(0,0,0,0.1)" }} />
               </View>
-              <View className="flex-row items-center">
-                <Text className="text-xs text-black/50 mr-1">
+
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={{ fontSize: 12, color: "rgba(0,0,0,0.5)", marginRight: 4 }}>
                   {formatTime(item.endedAt)}
                 </Text>
                 <Ionicons name="stop-circle" size={14} color="#ef4444" />
@@ -578,114 +621,162 @@ export default function SessionsScreen() {
     );
   };
 
-  // ================= RENDER EMPTY STATE =================
+  /* ================ EMPTY STATE ================ */
   const renderEmptyState = () => (
-    <View className="flex-1 items-center justify-center py-20">
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
       <LinearGradient
         colors={["#fdf2f8", "#fce7f3"]}
-        style={{ borderRadius: 100 }}
-        className="p-8 mb-5"
+        style={{ borderRadius: 100, padding: 32, marginBottom: 20 }}
       >
         <Ionicons
           name={
             activeTab === "voice"
               ? "call-outline"
               : activeTab === "video"
-                ? "videocam-outline"
-                : "apps-outline"
+              ? "videocam-outline"
+              : "apps-outline"
           }
           size={56}
           color="#db2777"
         />
       </LinearGradient>
-      <Text className="text-gray-800 text-xl font-bold mb-2">
+
+      <Text style={{ color: "#1f2937", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>
         No Sessions Found
       </Text>
-      <Text className="text-gray-500 text-sm text-center px-12 mb-6">
+
+      <Text
+        style={{
+          color: "#6b7280",
+          fontSize: 14,
+          textAlign: "center",
+          paddingHorizontal: 48,
+          marginBottom: 24,
+        }}
+      >
         {activeTab !== "all"
           ? `You don't have any ${activeTab} sessions yet.`
           : "Your session history will appear here once you start connecting."}
       </Text>
+
       <TouchableOpacity
         onPress={handleRefresh}
-        className="px-8 py-3 rounded-full"
-        style={{ backgroundColor: "#db2777" }}
+        style={{
+          paddingHorizontal: 32,
+          paddingVertical: 12,
+          borderRadius: 999,
+          backgroundColor: "#db2777",
+        }}
       >
-        <Text className="text-white font-semibold">Refresh</Text>
+        <Text style={{ color: "white", fontWeight: "600" }}>Refresh</Text>
       </TouchableOpacity>
     </View>
   );
 
-  // ================= RENDER LOADING =================
+  /* ================ LOADING ================ */
   const renderLoading = () => (
-    <View className="flex-1 items-center justify-center py-20">
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
       <ActivityIndicator size="large" color="#db2777" />
-      <Text className="text-gray-500 mt-4 text-base">Loading sessions...</Text>
+      <Text style={{ color: "#6b7280", marginTop: 16, fontSize: 16 }}>Loading sessions...</Text>
     </View>
   );
 
-  // ================= RENDER ERROR =================
+  /* ================ ERROR ================ */
   const renderError = () => (
-    <View className="flex-1 items-center justify-center py-20 px-8">
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
       <View
-        className="p-6 rounded-full mb-5"
-        style={{ backgroundColor: "#fee2e2" }}
+        style={{
+          padding: 24,
+          borderRadius: 999,
+          backgroundColor: "#fee2e2",
+          marginBottom: 20,
+        }}
       >
         <Ionicons name="cloud-offline-outline" size={56} color="#ef4444" />
       </View>
-      <Text className="text-gray-800 text-xl font-bold mb-2">
+
+      <Text style={{ color: "#1f2937", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>
         Connection Error
       </Text>
-      <Text className="text-gray-500 text-sm text-center mb-6">{error}</Text>
+
+      <Text style={{ color: "#6b7280", fontSize: 14, textAlign: "center", marginBottom: 24 }}>
+        {error}
+      </Text>
+
       <TouchableOpacity
         onPress={handleRefresh}
-        className="px-8 py-3 rounded-full"
-        style={{ backgroundColor: "#db2777" }}
+        style={{
+          paddingHorizontal: 32,
+          paddingVertical: 12,
+          borderRadius: 999,
+          backgroundColor: "#db2777",
+        }}
       >
-        <Text className="text-white font-semibold">Try Again</Text>
+        <Text style={{ color: "white", fontWeight: "600" }}>Try Again</Text>
       </TouchableOpacity>
     </View>
   );
 
-  // ================= RENDER FOOTER =================
+  /* ================ FOOTER ================ */
   const renderFooter = () => {
     if (!isLoadingMore) return null;
     return (
-      <View className="py-6 items-center">
+      <View style={{ paddingVertical: 24, alignItems: "center" }}>
         <ActivityIndicator size="small" color="#db2777" />
-        <Text className="text-gray-400 text-xs mt-2">Loading more...</Text>
+        <Text style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>Loading more...</Text>
       </View>
     );
   };
 
-  // ================= MAIN RENDER =================
+  /* ================ MAIN RENDER ================ */
   return (
     <GradientBackground>
-      <View className="flex-1">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 pt-14 pb-3">
+      <View style={{ flex: 1 }}>
+        {/* HEADER */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            paddingTop: 56,
+            paddingBottom: 12,
+          }}
+        >
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.05)" }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0,0,0,0.05)",
+            }}
           >
             <Ionicons name="arrow-back" size={22} color="#000" />
           </TouchableOpacity>
 
-          <Text className="text-xl font-bold text-black">Sessions</Text>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: "#000" }}>Sessions</Text>
 
           <TouchableOpacity
             onPress={handleRefresh}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.05)" }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0,0,0,0.05)",
+            }}
           >
             <Ionicons name="refresh-outline" size={20} color="#000" />
           </TouchableOpacity>
         </View>
 
-        {/* Summary Card */}
+        {/* SUMMARY CARD */}
         {pagination && pagination.totalSessions > 0 && (
-          <View className="mx-4 mt-2">
+          <View style={{ marginHorizontal: 16, marginTop: 8 }}>
             <LinearGradient
               colors={["#db2777", "#be185d", "#9d174d"]}
               start={{ x: 0, y: 0 }}
@@ -699,22 +790,39 @@ export default function SessionsScreen() {
                 elevation: 10,
               }}
             >
-              <View className="p-5 flex-row items-center justify-between">
+              <View
+                style={{
+                  padding: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <View>
-                  <Text className="text-white/70 text-xs font-medium mb-1">
+                  <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>
                     Total Sessions
                   </Text>
-                  <Text className="text-white text-3xl font-bold">
+                  <Text style={{ color: "#fff", fontSize: 28, fontWeight: "700" }}>
                     {pagination.totalSessions}
                   </Text>
                 </View>
-                <View className="items-end">
-                  <Text className="text-white/70 text-xs font-medium mb-1">
+
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>
                     Page {pagination.currentPage} of {pagination.totalPages}
                   </Text>
-                  <View className="flex-row items-center bg-white/20 px-3 py-1.5 rounded-full mt-1">
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 999,
+                    }}
+                  >
                     <Ionicons name="list" size={14} color="#fff" />
-                    <Text className="text-white text-sm font-semibold ml-1.5">
+                    <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600", marginLeft: 6 }}>
                       {sessions.length} loaded
                     </Text>
                   </View>
@@ -724,10 +832,10 @@ export default function SessionsScreen() {
           </View>
         )}
 
-        {/* Tab Bar */}
+        {/* TAB BAR */}
         {renderTabBar()}
 
-        {/* Content */}
+        {/* CONTENT */}
         {isLoading && !isRefreshing ? (
           renderLoading()
         ) : error && sessions.length === 0 ? (

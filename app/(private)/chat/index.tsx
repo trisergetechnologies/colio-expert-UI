@@ -83,11 +83,9 @@ export default function ChatListScreen() {
     }
   };
 
-  // ✅ FIXED: Handle null/undefined lastMessage and content
   const getLastMessagePreview = (conversation: Conversation) => {
     const lastMessage = conversation.lastMessage;
-    
-    // Handle null/undefined lastMessage or content
+
     if (!lastMessage || !lastMessage.content) {
       return 'No messages yet';
     }
@@ -100,14 +98,13 @@ export default function ChatListScreen() {
       return lastMessage.content;
     }
 
-    // Safely handle content
     const content = lastMessage.content || '';
     const maxLength = 35;
-    
+
     if (content.length > maxLength) {
       return content.substring(0, maxLength) + '...';
     }
-    
+
     return content;
   };
 
@@ -124,7 +121,9 @@ export default function ChatListScreen() {
         <View style={styles.avatarContainer}>
           <Image
             source={{
-              uri: participant.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              uri:
+                participant.avatar ||
+                'https://cdn-icons-png.flaticon.com/512/149/149071.png',
             }}
             style={styles.avatar}
           />
@@ -132,7 +131,10 @@ export default function ChatListScreen() {
 
         <View style={styles.contentContainer}>
           <View style={styles.topRow}>
-            <Text style={[styles.name, hasUnread && styles.nameUnread]} numberOfLines={1}>
+            <Text
+              style={[styles.name, hasUnread && styles.nameUnread]}
+              numberOfLines={1}
+            >
               {participant.name}
             </Text>
             <Text style={[styles.time, hasUnread && styles.timeUnread]}>
@@ -142,7 +144,10 @@ export default function ChatListScreen() {
 
           <View style={styles.bottomRow}>
             <Text
-              style={[styles.lastMessage, hasUnread && styles.lastMessageUnread]}
+              style={[
+                styles.lastMessage,
+                hasUnread && styles.lastMessageUnread,
+              ]}
               numberOfLines={1}
             >
               {getLastMessagePreview(item)}
@@ -162,7 +167,11 @@ export default function ChatListScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="chatbubbles-outline" size={80} color="rgba(255,255,255,0.3)" />
+      <Ionicons
+        name="chatbubbles-outline"
+        size={80}
+        color="rgba(255,255,255,0.3)"
+      />
       <Text style={styles.emptyTitle}>No conversations yet</Text>
       <Text style={styles.emptySubtitle}>
         When customers message you, they'll appear here
@@ -177,7 +186,10 @@ export default function ChatListScreen() {
         style={styles.headerGradient}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Messages</Text>
