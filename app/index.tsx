@@ -22,17 +22,38 @@ export default function IndexScreen() {
 
   const { isAuthenticated, isAuthLoading } = useAuth();
 
-  // 🚫 Redirect authenticated users to /home (or tabs)
   useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) {
+    if (isAuthLoading || !isAuthenticated) return;
+
+    const checkAndRedirect = async () => {
+      // ✅ THE FIX: Await the promise that was started in index.js
+      // BEFORE React rendered anything. This tells us if the app was
+      // opened by tapping an incoming call notification.
+      // 
+      // By the time this component mounts, index.js has already called
+      // getInitialNotification() — so this await usually resolves instantly.
+      // We are NOT starting a new async call here, just waiting for the
+      // one already in flight since app boot.
+      await global.__pendingCallPromise;
+
+      if (global.__pendingCallData && global.__pendingCallData.actionId !== 'decline') {
+        // App was opened from an incoming call notification.
+        // Skip the home redirect — _layout.tsx will navigate to /incoming-call.
+        console.log('[Index] 📞 Opened from call notification — skipping home redirect');
+        return;
+      }
+
+      // Normal flow
+      console.log('[Index] ✅ No pending call — redirecting to home');
       router.replace("/(tabs)/home");
-    }
+    };
+
+    checkAndRedirect();
   }, [isAuthLoading, isAuthenticated]);
 
   useEffect(() => {
     console.log('=== FIREBASE DEBUG (EXPERT APP) ===');
     console.log('Firebase apps length:', firebase.apps.length);
-
     if (firebase.apps.length > 0) {
       console.log('✅ Firebase app exists');
       console.log('App name:', firebase.app().name);
@@ -84,7 +105,6 @@ export default function IndexScreen() {
           >
             Colio
           </Text>
-
           <Text
             style={{
               fontSize: 18,

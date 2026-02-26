@@ -1,5 +1,6 @@
 // app/(private)/_layout.tsx
 import { useAuth } from "@/context/AuthContext";
+import { usePrivateScreenProtection } from "@/hooks/usePrivateScreenProtection";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useRouter } from "expo-router";
 import { useColorScheme } from "nativewind";
@@ -11,6 +12,7 @@ export default function PrivateLayout() {
 
     const router = useRouter();
     const { isAuthenticated, isAuthLoading, user } = useAuth();
+    usePrivateScreenProtection(!!user);
   
     // ✅ Redirect if not logged in
     useEffect(() => {
