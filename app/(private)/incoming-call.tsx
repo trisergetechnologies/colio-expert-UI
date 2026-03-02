@@ -10,6 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  AppState,
+  AppStateStatus,
   Dimensions,
   Easing,
   Image,
@@ -46,13 +48,82 @@ export default function IncomingCallScreen() {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
+  const hasAutoClosedRef = useRef(false);
+  const hasAcceptedRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const guardIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const closeIfSessionNoLongerRinging = (reason: string, status?: string) => {
+    if (hasAutoClosedRef.current) return;
+    hasAutoClosedRef.current = true;
+    stopVibration();
+    router.replace('/(tabs)/home');
+  };
+
+  const validateSessionStillRinging = async (
+    source: 'mount' | 'appstate' | 'interval' | 'accept',
+    options?: { ignoreAcceptedGuard?: boolean }
+  ) => {
+    if (!sessionId || hasAutoClosedRef.current) return true;
+
+    const acceptedNow = hasAcceptedRef.current;
+    if (acceptedNow && !options?.ignoreAcceptedGuard) {
+      return true;
+    }
+    try {
+      const jwt = await getToken();
+      if (!jwt) return true;
+      const response = await axios.get(
+        `${API_BASE_URL}/session/${sessionId}/status`,
+        { headers: { Authorization: `Bearer ${jwt}` } }
+      );
+      const status = String(response.data?.data?.status || '');
+
+      // Once accepted, "active" is valid and should not auto-close the screen.
+      if (status === 'active' && acceptedNow && !options?.ignoreAcceptedGuard) {
+        return true;
+      }
+
+      if (!['ringing', 'initiated', 'requested'].includes(status)) {
+        closeIfSessionNoLongerRinging(source, status);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        closeIfSessionNoLongerRinging(source, '404');
+        return false;
+      }
+      return true;
+    }
+  };
 
   useEffect(() => {
     console.log('[Consultant] Incoming call screen mounted');
     startVibration();
     startAnimations();
 
+    // If this screen opens from a stale notification/navigation race,
+    // close it immediately when session is no longer ringing.
+    validateSessionStillRinging('mount');
+    guardIntervalRef.current = setInterval(() => {
+      validateSessionStillRinging('interval');
+    }, 3000);
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      const prev = appStateRef.current;
+      appStateRef.current = nextState;
+      if ((prev === 'background' || prev === 'inactive') && nextState === 'active') {
+        validateSessionStillRinging('appstate');
+      }
+    });
+
     return () => {
+      if (guardIntervalRef.current) {
+        clearInterval(guardIntervalRef.current);
+        guardIntervalRef.current = null;
+      }
+      appStateSubscription.remove();
       stopVibration();
     };
   }, []);
@@ -111,11 +182,24 @@ export default function IncomingCallScreen() {
   const handleAccept = async () => {
     if (hasAccepted || loading) return;
 
+    hasAcceptedRef.current = true;
     setHasAccepted(true);
     setLoading(true);
     stopVibration();
 
     try {
+      const stillRinging = await validateSessionStillRinging('accept', { ignoreAcceptedGuard: true });
+      if (!stillRinging) {
+        hasAcceptedRef.current = false;
+        setHasAccepted(false);
+        return;
+      }
+
+      if (guardIntervalRef.current) {
+        clearInterval(guardIntervalRef.current);
+        guardIntervalRef.current = null;
+      }
+
       const hasPermissions = await requestPermissions();
       if (!hasPermissions) {
         Alert.alert('Permission Required', 'Microphone permission is required');
@@ -198,6 +282,8 @@ export default function IncomingCallScreen() {
       });
 
     } catch (err) {
+      hasAcceptedRef.current = false;
+      setHasAccepted(false);
       console.error("[Consultant] Accept error:", err);
       Alert.alert("Error", "Failed to join call");
       router.back();

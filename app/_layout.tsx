@@ -2,7 +2,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { AuthProvider } from "@/context/AuthContext";
 import { CallProvider } from "@/context/CallContext";
-import { useIncomingCallPolling } from '@/hooks/useIncomingCallPolling';
 import { useThemeColors } from "@/hooks/useThemeColors";
 import { getToken } from "@/utils/tokenHelper";
 import { Pacifico_400Regular, useFonts } from "@expo-google-fonts/pacifico";
@@ -26,6 +25,8 @@ const API_BASE_URL = 'https://api.colio.in/api';
 // GLOBAL STATE
 // ============================================================================
 const activeRingingSessions = new Map<string, NodeJS.Timeout>();
+const activeForegroundServiceStops = new Map<string, () => void>();
+const activeIncomingNavigationSessions = new Set<string>();
 
 // ============================================================================
 // ✅ REGISTER FOREGROUND SERVICE — must be called at module level (not inside
@@ -34,32 +35,64 @@ const activeRingingSessions = new Map<string, NodeJS.Timeout>();
 // ignored by the Expo dev client.
 // ============================================================================
 notifee.registerForegroundService((notification) => {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     const sessionId = String(notification.data?.sessionId || '');
+    const customerName = String(notification.data?.customerName || '');
     console.log('[ForegroundService] 🔔 Started for sessionId:', sessionId);
-
-    const checkInterval = setInterval(async () => {
-      try {
-        const displayed = await notifee.getDisplayedNotifications();
-        const stillShowing = displayed.some(
-          n => n.id === sessionId || String((n.notification?.data as any)?.sessionId) === sessionId
-        );
-        if (!stillShowing) {
-          console.log('[ForegroundService] 🛑 Notification gone — stopping service');
-          clearInterval(checkInterval);
-          resolve();
-        }
-      } catch (e) {
-        clearInterval(checkInterval);
-        resolve();
+    // Runtime evidence showed getDisplayedNotifications can briefly return empty
+    // on lock screen/full-screen transitions, causing false early stop.
+    // Keep service alive until explicit cancel/answer, with timeout as safety.
+    let stopped = false;
+    let backgroundPollInterval: NodeJS.Timeout | null = null;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      if (backgroundPollInterval) {
+        clearInterval(backgroundPollInterval);
+        backgroundPollInterval = null;
       }
-    }, 1000);
+      if (sessionId && activeForegroundServiceStops.get(sessionId) === stop) {
+        activeForegroundServiceStops.delete(sessionId);
+      }
+      resolve();
+    };
 
-    // Safety: stop after 60s
+    if (sessionId) {
+      activeForegroundServiceStops.set(sessionId, stop);
+
+      // While screen is off/background, this is the reliable fallback path
+      // to convert incoming-call -> missed-call when session is no longer ringing.
+      backgroundPollInterval = setInterval(async () => {
+        try {
+          const token = await getToken();
+          if (!token) {
+            return;
+          }
+          const response = await axios.get(
+            `${API_BASE_URL}/session/${sessionId}/status`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const status = String(response.data?.data?.status || '');
+          if (status && !['ringing', 'initiated', 'requested'].includes(status)) {
+            await cancelIncomingCallNotification(sessionId);
+            if (['cancelled', 'ended', 'missed', 'failed'].includes(status)) {
+              await displayMissedCallNotification(sessionId, customerName);
+            }
+            stop();
+          }
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await cancelIncomingCallNotification(sessionId);
+            await displayMissedCallNotification(sessionId, customerName);
+            stop();
+          }
+        }
+      }, 3000);
+    }
+
     setTimeout(() => {
       console.log('[ForegroundService] ⏰ Timeout — stopping service');
-      clearInterval(checkInterval);
-      resolve();
+      stop();
     }, 60000);
   });
 });
@@ -68,6 +101,13 @@ notifee.registerForegroundService((notification) => {
 // HELPER: Cancel notification + stop foreground service
 // ============================================================================
 async function cancelIncomingCallNotification(sessionId: string) {
+  activeIncomingNavigationSessions.delete(sessionId);
+  const stopForeground = activeForegroundServiceStops.get(sessionId);
+  if (stopForeground) {
+    console.log('[ForegroundService] 🛑 Explicit stop requested for sessionId:', sessionId);
+    stopForeground();
+  }
+
   // Stop the foreground service first
   try {
     await notifee.stopForegroundService();
@@ -181,7 +221,6 @@ async function displayIncomingCallNotification(data: Record<string, any>) {
       showTimestamp: true,
     },
   });
-
   console.log('[Consultant] ✅ Notification + foreground service started for:', sessionId);
   startSessionStatusPolling(sessionId, String(data.customerName || ''));
 }
@@ -261,7 +300,6 @@ export default function RootLayout() {
   const router = useRouter();
   const [fontsLoaded] = useFonts({ Pacifico_400Regular });
   const {} = useThemeColors();
-  const { startPolling, stopPolling } = useIncomingCallPolling();
   const isMounted = useRef(false);
   const hasHandledInitial = useRef(false);
   const appState = useRef(AppState.currentState);
@@ -271,14 +309,20 @@ export default function RootLayout() {
     return () => { isMounted.current = false; };
   }, []);
 
-  const navigateToIncomingCall = (data: Record<string, any>) => {
+  const navigateToIncomingCall = (
+    data: Record<string, any>,
+    source: 'initial' | 'appstate' | 'foregroundEvent' | 'foregroundFCM'
+  ) => {
     const sessionId = String(data.sessionId || '');
     if (!sessionId || !isMounted.current) return;
+    if (activeIncomingNavigationSessions.has(sessionId)) {
+      return;
+    }
+    activeIncomingNavigationSessions.add(sessionId);
     if (activeRingingSessions.has(sessionId)) {
       clearInterval(activeRingingSessions.get(sessionId)!);
       activeRingingSessions.delete(sessionId);
     }
-    cancelIncomingCallNotification(sessionId);
     console.log('[Consultant] 🚀 Navigating to incoming-call:', sessionId);
     router.push({
       pathname: '/incoming-call',
@@ -289,6 +333,36 @@ export default function RootLayout() {
         customerAvatar: String(data.customerAvatar || ''),
       },
     });
+  };
+
+  const validateAndNavigateIfRinging = async (
+    data: Record<string, any>,
+    source: 'initial' | 'appstate' | 'foregroundEvent' | 'foregroundFCM'
+  ) => {
+    const sessionId = String(data.sessionId || '');
+    if (!sessionId) return;
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const response = await axios.get(
+        `${API_BASE_URL}/session/${sessionId}/status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const status = String(response.data?.data?.status || '');
+      if (['ringing', 'initiated', 'requested'].includes(status)) {
+        navigateToIncomingCall(data, source);
+      } else {
+        await cancelIncomingCallNotification(sessionId);
+        if (['cancelled', 'ended', 'missed', 'failed'].includes(status)) {
+          await displayMissedCallNotification(sessionId, String(data.customerName || ''));
+        }
+      }
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        await cancelIncomingCallNotification(sessionId);
+        await displayMissedCallNotification(sessionId, String(data.customerName || ''));
+      }
+    }
   };
 
   const checkDisplayedNotificationsForCall = async () => {
@@ -310,9 +384,15 @@ export default function RootLayout() {
             const status = response.data?.data?.status;
             console.log('[Consultant] 📊 Call status:', status);
             if (['ringing', 'initiated', 'requested'].includes(status)) {
-              navigateToIncomingCall(data);
+              await validateAndNavigateIfRinging(data, 'appstate');
             } else {
               await cancelIncomingCallNotification(sessionId);
+              if (['cancelled', 'ended', 'missed', 'failed'].includes(String(status || ''))) {
+                await displayMissedCallNotification(
+                  sessionId,
+                  String(data.customerName || '')
+                );
+              }
             }
           } catch (e) {
             await cancelIncomingCallNotification(sessionId);
@@ -338,7 +418,7 @@ export default function RootLayout() {
           const actionId = initialNotification.pressAction?.id;
           console.log('[Consultant] 🥶 App opened from KILLED state, type:', data.type);
           if (data.type === 'incoming_call' && actionId !== 'decline') {
-            navigateToIncomingCall(data);
+            validateAndNavigateIfRinging(data, 'initial');
           }
         }
       });
@@ -360,7 +440,7 @@ export default function RootLayout() {
     const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
     // --- LISTENER 3: NOTIFEE FOREGROUND (tap/button while app is open) ---
-    const unsubscribeForeground = notifee.onForegroundEvent(({ type, detail }) => {
+    const unsubscribeForeground = notifee.onForegroundEvent(async ({ type, detail }) => {
       const data = detail.notification?.data as Record<string, any> | undefined;
       if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
         if (data?.type === 'incoming_call') {
@@ -373,7 +453,7 @@ export default function RootLayout() {
             }
             return;
           }
-          navigateToIncomingCall(data);
+          await validateAndNavigateIfRinging(data, 'foregroundEvent');
         }
       }
     });
@@ -384,7 +464,7 @@ export default function RootLayout() {
       if (remoteMessage.data?.type === 'incoming_call') {
         const data = remoteMessage.data as Record<string, any>;
         console.log('[Consultant] 📞 Call while app open — navigating directly');
-        navigateToIncomingCall(data);
+        await validateAndNavigateIfRinging(data, 'foregroundFCM');
         startSessionStatusPolling(String(data.sessionId || ''), String(data.customerName || ''));
       }
       if (remoteMessage.data?.type === 'call_cancelled') {

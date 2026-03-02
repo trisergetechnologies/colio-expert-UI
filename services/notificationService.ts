@@ -9,6 +9,8 @@ const API_BASE_URL = "https://api.colio.in/api";
 const NOTIFICATION_STORAGE_KEY = "@fcm_token";
 
 class NotificationService {
+  private tokenRefreshUnsubscribe: (() => void) | null = null;
+
   // ✅ Request notification permissions
   async requestNotificationPermission(): Promise<boolean> {
     try {
@@ -147,11 +149,21 @@ class NotificationService {
 
   // ✅ Setup token refresh listener
   setupTokenRefreshListener() {
-    messaging().onTokenRefresh(async (token) => {
+    if (this.tokenRefreshUnsubscribe) return;
+
+    this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(async (token) => {
       console.log("[Expert] 🔄 FCM Token refreshed:", token);
       await AsyncStorage.setItem(NOTIFICATION_STORAGE_KEY, token);
       await this.registerTokenWithBackend(token);
     });
+  }
+
+  // ✅ Cleanup listeners (used during logout)
+  removeListeners() {
+    if (this.tokenRefreshUnsubscribe) {
+      this.tokenRefreshUnsubscribe();
+      this.tokenRefreshUnsubscribe = null;
+    }
   }
 
   // ✅ Remove FCM token from backend (on logout)

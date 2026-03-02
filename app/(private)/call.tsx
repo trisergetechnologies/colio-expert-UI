@@ -199,6 +199,20 @@ export default function ConsultantCallScreen() {
         setRemoteUid(0);
         setIsCustomerConnected(false);
 
+        // Stop all polling immediately to avoid expected 404 noise after session closes.
+        if (emojiPollRef.current) {
+          clearInterval(emojiPollRef.current);
+          emojiPollRef.current = null;
+        }
+        if (chatPollRef.current) {
+          clearInterval(chatPollRef.current);
+          chatPollRef.current = null;
+        }
+        if (sessionPollRef.current) {
+          clearInterval(sessionPollRef.current);
+          sessionPollRef.current = null;
+        }
+
         setTimeout(() => {
           Alert.alert('Call Ended', 'Customer left the call', [
             { text: 'OK', onPress: () => handleEndCall() }
@@ -271,6 +285,14 @@ export default function ConsultantCallScreen() {
           sessionId,
           lastEmojiPollTimeRef.current
         );
+
+        if (result.sessionInactive) {
+          if (emojiPollRef.current) {
+            clearInterval(emojiPollRef.current);
+            emojiPollRef.current = null;
+          }
+          return;
+        }
 
         if (result.emojis?.length > 0) {
           const customerEmojis = result.emojis.filter(

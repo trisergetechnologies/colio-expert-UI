@@ -1,6 +1,5 @@
 // index.js — Native entry point
 // Runs BEFORE any React component renders.
-
 import notifee, {
     AndroidCategory,
     AndroidImportance,

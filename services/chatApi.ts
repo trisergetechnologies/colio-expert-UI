@@ -68,6 +68,12 @@ export interface CallEmoji {
   timestamp: number;
 }
 
+export interface PollCallEmojisResult {
+  emojis: CallEmoji[];
+  serverTime: number;
+  sessionInactive?: boolean;
+}
+
 export interface PaginationInfo {
   page: number;
   limit: number;
@@ -367,7 +373,7 @@ export const sendCallEmoji = async (
 export const pollCallEmojis = async (
   sessionId: string,
   since?: number
-): Promise<{ emojis: CallEmoji[]; serverTime: number }> => {
+): Promise<PollCallEmojisResult> => {
   try {
     const headers = await getAuthHeaders();
     const res = await axios.get(
@@ -385,7 +391,11 @@ export const pollCallEmojis = async (
       };
     }
     return { emojis: [], serverTime: Date.now() };
-  } catch (error) {
+  } catch (error: any) {
+    // 404 is expected when session is no longer active; stop polling gracefully.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return { emojis: [], serverTime: Date.now(), sessionInactive: true };
+    }
     console.error('[chatApi] pollCallEmojis error:', error);
     return { emojis: [], serverTime: Date.now() };
   }
