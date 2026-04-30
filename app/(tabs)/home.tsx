@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [disable, setDisable] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState<"onWork" | "offWork" | "busy">("offWork");
   const [greeting, setGreeting] = useState("Hello");
   const { user } = useAuth();
   const [recentConnections, setRecentConnections] = useState<any[]>([]);
@@ -39,28 +40,44 @@ export default function HomeScreen() {
     else setGreeting("Good Evening");
   }, []);
 
+  useEffect(() => {
+    const st = user?.consultantProfile?.availabilityStatus;
+    if (st === "onWork" || st === "offWork" || st === "busy") {
+      setAvailabilityStatus(st);
+      setIsOnDuty(st === "onWork");
+      setDisable(st === "busy");
+    }
+  }, [user?.consultantProfile?.availabilityStatus]);
+
+  const refreshAvailability = async () => {
+    try {
+      const token = await getToken();
+      const res = await axios.get(`${API_BASE_URL}/consultant/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.data?.success) return;
+      const st = res.data?.data?.availabilityStatus;
+      if (st === "onWork" || st === "offWork" || st === "busy") {
+        setAvailabilityStatus(st);
+        setIsOnDuty(st === "onWork");
+        setDisable(st === "busy");
+      }
+    } catch (error) {
+      console.log("Failed to refresh availability", error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
-      if (user?.consultantProfile?.availabilityStatus === "busy") {
-        setDisable(true);
-      } else {
-        setDisable(false);
-      }
-
-      if (user?.consultantProfile?.availabilityStatus === "onWork") {
-        setIsOnDuty(true);
-      } else {
-        setIsOnDuty(false);
-      }
-
+      refreshAvailability();
       fetchRecentConnections();
-    }, [user])
+    }, [])
   );
 
   const handleAvailability = async () => {
     const token = await getToken();
     const url = `${API_BASE_URL}/consultant/availability`;
-    const payload = isOnDuty ? "offWork" : "onWork";
+    const payload = availabilityStatus === "onWork" ? "offWork" : "onWork";
 
     try {
       const res = await axios.put(
@@ -70,11 +87,13 @@ export default function HomeScreen() {
       );
 
       if (res.data.success) {
-        const onDuty = !isOnDuty;
-        setIsOnDuty(onDuty);
+        const nextStatus = res.data?.data?.availabilityStatus || payload;
+        setAvailabilityStatus(nextStatus);
+        setIsOnDuty(nextStatus === "onWork");
+        setDisable(nextStatus === "busy");
         ToastAndroid.show(
           res.data.data?.message ||
-            `You are now ${onDuty ? "Online" : "Offline"}`,
+            `You are now ${nextStatus === "onWork" ? "Online" : "Offline"}`,
           ToastAndroid.SHORT
         );
       } else {
@@ -184,7 +203,7 @@ export default function HomeScreen() {
               alignItems: "center",
             }}
           >
-            {user?.consultantProfile?.availabilityStatus !== "busy" ? (
+            {availabilityStatus !== "busy" ? (
               <TouchableOpacity
                 onPress={handleAvailability}
                 disabled={disable}

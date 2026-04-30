@@ -4,7 +4,7 @@ import firebase from '@react-native-firebase/app';
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Animated, Text, TouchableOpacity, View } from "react-native";
 import "../global.css";
 
 const slogans = [
@@ -20,38 +20,41 @@ export default function IndexScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const { isAuthenticated, isAuthLoading } = useAuth();
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
 
   useEffect(() => {
-    if (isAuthLoading || !isAuthenticated) return;
+    if (isAuthLoading || !isAuthenticated || !user) return;
 
     const checkAndRedirect = async () => {
-      // ✅ THE FIX: Await the promise that was started in index.js
-      // BEFORE React rendered anything. This tells us if the app was
-      // opened by tapping an incoming call notification.
-      // 
-      // By the time this component mounts, index.js has already called
-      // getInitialNotification() — so this await usually resolves instantly.
-      // We are NOT starting a new async call here, just waiting for the
-      // one already in flight since app boot.
       await global.__pendingCallPromise;
 
       if (global.__pendingCallData && global.__pendingCallData.actionId !== 'decline') {
-        // App was opened from an incoming call notification.
-        // Skip the home redirect — _layout.tsx will navigate to /incoming-call.
         console.log('[Index] 📞 Opened from call notification — skipping home redirect');
         return;
       }
 
-      // Normal flow
-      console.log('[Index] ✅ No pending call — redirecting to home');
+      const st = user.consultantProfile?.applicationStatus ?? "approved";
+      if (st === "pending_approval") {
+        router.replace("/(onboarding)/pending");
+        return;
+      }
+      if (st === "rejected") {
+        router.replace("/(onboarding)/rejected");
+        return;
+      }
+      if (st === "pending_profile") {
+        router.replace("/(onboarding)/personal-info");
+        return;
+      }
+
       router.replace("/(tabs)/home");
     };
 
     checkAndRedirect();
-  }, [isAuthLoading, isAuthenticated]);
+  }, [isAuthLoading, isAuthenticated, user]);
 
   useEffect(() => {
+    if (isAuthLoading || isAuthenticated) return;
     console.log('=== FIREBASE DEBUG (EXPERT APP) ===');
     console.log('Firebase apps length:', firebase.apps.length);
     if (firebase.apps.length > 0) {
@@ -62,9 +65,10 @@ export default function IndexScreen() {
       console.log('❌ No Firebase app initialized');
     }
     console.log('====================================');
-  }, []);
+  }, [isAuthLoading, isAuthenticated]);
 
   useEffect(() => {
+    if (isAuthLoading || isAuthenticated) return;
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -81,7 +85,17 @@ export default function IndexScreen() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fadeAnim, isAuthLoading, isAuthenticated]);
+
+  if (isAuthLoading || isAuthenticated) {
+    return (
+      <GradientBackground>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color="#db2777" />
+        </View>
+      </GradientBackground>
+    );
+  }
 
   return (
     <GradientBackground>

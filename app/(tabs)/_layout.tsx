@@ -11,14 +11,20 @@ export default function TabsLayout() {
   const router = useRouter();
   const { isAuthenticated, isAuthLoading, user } = useAuth();
 
-  // ✅ Redirect if not logged in
   useEffect(() => {
     if (!isAuthLoading) {
       if (!isAuthenticated || !user) {
         router.replace("/(auth)/auth");
+        return;
+      }
+      const st = user.consultantProfile?.applicationStatus ?? "approved";
+      if (st !== "approved") {
+        if (st === "pending_approval") router.replace("/(onboarding)/pending");
+        else if (st === "rejected") router.replace("/(onboarding)/rejected");
+        else router.replace("/(onboarding)/personal-info");
       }
     }
-  }, [isAuthLoading, isAuthenticated, user]);
+  }, [isAuthLoading, isAuthenticated, user, router]);
 
   // ✅ Loading state
   if (isAuthLoading) {

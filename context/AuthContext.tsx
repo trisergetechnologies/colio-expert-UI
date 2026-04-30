@@ -2,6 +2,7 @@
 
 import notificationService from '@/services/notificationService';
 import { getToken, removeToken, setToken } from "@/utils/tokenHelper";
+import { API_BASE_URL } from "@/constants/onboarding";
 import axios from "axios";
 import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
 // ========== CONSULTANT USER TYPE ==========
@@ -26,16 +27,31 @@ export type ConsultantUser = {
   consultantProfile: {
     bio?: string;
     skills?: string[];
+    category?: string;
     ratingAverage?: number;
     ratingCount?: number;
     totalSessions?: number;
     onboardingScore?: number;
     ratePerMinute?: number;
+    ratePerMinuteVideo?: number;
+    ratePerMinuteChat?: number;
     availabilityStatus?: "onWork" | "offWork" | "busy";
+    applicationStatus?:
+      | "pending_profile"
+      | "pending_approval"
+      | "approved"
+      | "rejected";
+    rejectionReason?: string;
     wallet?: {
       available: number;
       pending: number;
       totalEarned: number;
+    };
+    agreement?: {
+      signed?: boolean;
+      signedName?: string;
+      signedAt?: string;
+      version?: string;
     };
   };
 
@@ -84,8 +100,6 @@ type Props = { children: ReactNode };
 export const AuthProvider = ({ children }: Props) => {
   const [user, setUser] = useState<ConsultantUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-
-  const API_BASE_URL = "https://api.colio.in/api";
 
   // ✅ INIT AUTH ON MOUNT
   useEffect(() => {
@@ -144,9 +158,9 @@ const saveAuthData = async (userData: any) => {
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await axios.get(`${API_BASE_URL}/consultant/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        const res = await axios.get(`${API_BASE_URL}/user/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       if (res.data?.success && res.data.data) {
         setUser(res.data.data);
       }

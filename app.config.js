@@ -14,6 +14,7 @@ export default {
     // ONLY custom config plugins go here
     plugins: [
       ...(appJson.expo?.plugins || []),
+       "@react-native-community/datetimepicker",
 
       // REMARK:
       // This is OUR native plugin that injects FLAG_SECURE

@@ -10,14 +10,22 @@ import { ActivityIndicator } from "react-native";
 export default function PrivateLayout() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
-  const { isAuthenticated, isAuthLoading } = useAuth();
+  const { isAuthenticated, isAuthLoading, user } = useAuth();
 
-  // 🚫 Redirect authenticated users to /home (or tabs)
   useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) {
-      router.replace("/(tabs)/home");
+    if (!isAuthLoading && isAuthenticated && user) {
+      const st = user.consultantProfile?.applicationStatus ?? "approved";
+      if (st === "approved") {
+        router.replace("/(tabs)/home");
+      } else if (st === "pending_approval") {
+        router.replace("/(onboarding)/pending");
+      } else if (st === "rejected") {
+        router.replace("/(onboarding)/rejected");
+      } else {
+        router.replace("/(onboarding)/personal-info");
+      }
     }
-  }, [isAuthLoading, isAuthenticated]);
+  }, [isAuthLoading, isAuthenticated, user, router]);
 
   // 🔄 Show loader while checking auth
   if (isAuthLoading) {
@@ -37,8 +45,7 @@ export default function PrivateLayout() {
     );
   }
 
-  // ✅ Allow rendering only if user is NOT logged in
-  if (isAuthenticated) return null;
+  if (isAuthenticated && user) return null;
 
   return (
     <Stack
@@ -61,6 +68,7 @@ export default function PrivateLayout() {
           title: "Auth",
         }}
       />
+      <Stack.Screen name="signup" options={{ title: "Sign up" }} />
     </Stack>
   );
 }

@@ -10,8 +10,8 @@ import notifee, {
   AndroidImportance,
   AndroidVisibility,
   EventType,
-} from '@notifee/react-native';
-import messaging from '@react-native-firebase/messaging';
+} from "@/utils/notifeeCompat";
+import messaging from "@/utils/messagingCompat";
 import axios from 'axios';
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";

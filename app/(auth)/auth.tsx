@@ -353,6 +353,15 @@ export default function ConsultantLoginScreen() {
               </TouchableOpacity>
             </View>
 
+            <TouchableOpacity
+              onPress={() => router.push("/(auth)/signup")}
+              style={{ marginBottom: 16 }}
+            >
+              <Text style={{ color: "black", textAlign: "center", fontSize: 14 }}>
+                New here? Become a Colio Expert
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={handleLogin} disabled={loading}>
               <LinearGradient
                 colors={["#db2777", "#db2777"]}
