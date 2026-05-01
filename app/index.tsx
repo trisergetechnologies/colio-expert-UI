@@ -22,6 +22,8 @@ export default function IndexScreen() {
 
   const { isAuthenticated, isAuthLoading, user } = useAuth();
 
+  const applicationStatus = user?.consultantProfile?.applicationStatus;
+
   useEffect(() => {
     if (isAuthLoading || !isAuthenticated || !user) return;
 
@@ -33,25 +35,27 @@ export default function IndexScreen() {
         return;
       }
 
-      const st = user.consultantProfile?.applicationStatus ?? "approved";
-      if (st === "pending_approval") {
+      if (applicationStatus === "pending_approval") {
         router.replace("/(onboarding)/pending");
         return;
       }
-      if (st === "rejected") {
+      if (applicationStatus === "rejected") {
         router.replace("/(onboarding)/rejected");
         return;
       }
-      if (st === "pending_profile") {
+      if (applicationStatus === "pending_profile") {
         router.replace("/(onboarding)/personal-info");
         return;
       }
-
-      router.replace("/(tabs)/home");
+      if (applicationStatus === "approved") {
+        router.replace("/(tabs)/home");
+        return;
+      }
+      router.replace("/(onboarding)/personal-info");
     };
 
     checkAndRedirect();
-  }, [isAuthLoading, isAuthenticated, user]);
+  }, [isAuthLoading, isAuthenticated, !!user, applicationStatus]);
 
   useEffect(() => {
     if (isAuthLoading || isAuthenticated) return;

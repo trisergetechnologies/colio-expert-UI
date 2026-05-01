@@ -10,13 +10,14 @@ export default function OnboardingLayout() {
   const router = useRouter();
   const { isAuthenticated, isAuthLoading, user } = useAuth();
 
+  const applicationStatus = user?.consultantProfile?.applicationStatus;
+
   useEffect(() => {
     if (isAuthLoading || !isAuthenticated || !user) return;
-    const st = user.consultantProfile?.applicationStatus ?? "approved";
-    if (st === "approved") {
+    if (applicationStatus === "approved") {
       router.replace("/(tabs)/home");
     }
-  }, [isAuthLoading, isAuthenticated, user, router]);
+  }, [isAuthLoading, isAuthenticated, !!user, applicationStatus, router]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => true);

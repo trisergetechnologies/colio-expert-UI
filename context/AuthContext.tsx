@@ -4,7 +4,15 @@ import notificationService from '@/services/notificationService';
 import { getToken, removeToken, setToken } from "@/utils/tokenHelper";
 import { API_BASE_URL } from "@/constants/onboarding";
 import axios from "axios";
-import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 // ========== CONSULTANT USER TYPE ==========
 export type ConsultantUser = {
   userId: string;
@@ -101,6 +109,15 @@ export const AuthProvider = ({ children }: Props) => {
   const [user, setUser] = useState<ConsultantUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
+  const initializeNotifications = useCallback(async () => {
+    try {
+      console.log("[Expert] 🔔 Initializing notifications...");
+      await notificationService.initialize();
+    } catch (error) {
+      console.error("[Expert] ❌ Error initializing notifications:", error);
+    }
+  }, []);
+
   // ✅ INIT AUTH ON MOUNT
   useEffect(() => {
     const initAuth = async () => {
@@ -110,23 +127,20 @@ export const AuthProvider = ({ children }: Props) => {
         if (!token) {
           setUser(null);
           setIsAuthLoading(false);
-          return () => {
-              notificationService.removeListeners();
-          };
+          return;
         }
 
         const res = await axios.get(`${API_BASE_URL}/user/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-if (res.data?.success && res.data.data) {
-  setUser(res.data.data);
-  // ✅ Initialize notifications after profile loaded
-  await initializeNotifications();
-} else {
-  await removeToken();
-  setUser(null);
-}
+        if (res.data?.success && res.data.data) {
+          setUser(res.data.data);
+          await initializeNotifications();
+        } else {
+          await removeToken();
+          setUser(null);
+        }
       } catch (err) {
         console.error("Init consultant auth error:", err);
         await removeToken();
@@ -136,66 +150,94 @@ if (res.data?.success && res.data.data) {
       }
     };
 
-    initAuth();
-  }, []);
+    void initAuth();
+  }, [initializeNotifications]);
 
   // ✅ SAVE AUTH DATA AFTER LOGIN/REGISTER
-const saveAuthData = async (userData: any) => {
-  try {
-    const token = userData?.accessToken;
-    if (token) await setToken(token);
-    setUser(userData);
-    
-    // ✅ Initialize notifications after login
-    await initializeNotifications();
-  } catch (err) {
-    console.error("Error saving consultant auth data:", err);
-  }
-};
+  const saveAuthData = useCallback(
+    async (userData: any) => {
+      try {
+        const token = userData?.accessToken;
+        if (token) await setToken(token);
+        setUser(userData);
+        await initializeNotifications();
+      } catch (err) {
+        console.error("Error saving consultant auth data:", err);
+      }
+    },
+    [initializeNotifications],
+  );
 
-  // ✅ REFRESH USER FROM BACKEND
-  const refreshUser = async () => {
+  // Prevent concurrent refreshUser calls and unnecessary re-renders from identical data.
+  const refreshingRef = useRef(false);
+
+  const refreshUser = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     try {
       const token = await getToken();
       if (!token) return;
-        const res = await axios.get(`${API_BASE_URL}/user/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      const res = await axios.get(`${API_BASE_URL}/user/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.data?.success && res.data.data) {
-        setUser(res.data.data);
+        const incoming = res.data.data as ConsultantUser;
+        setUser((prev) => {
+          if (!prev) return incoming;
+
+          const prevStatus = prev.consultantProfile?.applicationStatus;
+          const nextStatus = incoming.consultantProfile?.applicationStatus;
+
+          // Preserve previous status when the API omits it.
+          if (prevStatus && (nextStatus === undefined || nextStatus === null)) {
+            return {
+              ...incoming,
+              consultantProfile: {
+                ...(incoming.consultantProfile ?? prev.consultantProfile ?? {}),
+                applicationStatus: prevStatus,
+              },
+            };
+          }
+
+          // Skip state update when nothing meaningful changed — avoids
+          // creating a new object ref that triggers layout effects and flicker.
+          if (
+            prev.userId === incoming.userId &&
+            prevStatus === nextStatus &&
+            prev.isActive === incoming.isActive &&
+            prev.consultantProfile?.availabilityStatus ===
+              incoming.consultantProfile?.availabilityStatus &&
+            prev.consultantProfile?.ratingAverage ===
+              incoming.consultantProfile?.ratingAverage &&
+            prev.name === incoming.name &&
+            prev.avatar === incoming.avatar
+          ) {
+            return prev;
+          }
+
+          return incoming;
+        });
       }
     } catch (err) {
       console.error("Failed to refresh consultant user:", err);
+    } finally {
+      refreshingRef.current = false;
     }
-  };
+  }, []);
 
-  // ✅ LOGOUT
-const logout = async () => {
-  try {
-    setIsAuthLoading(true);
-    
-    // ✅ Remove FCM token and cleanup listeners
-    await notificationService.removeTokenFromBackend();
-    notificationService.removeListeners();
-    
-    await removeToken();
-    setUser(null);
-  } catch (err) {
-    console.error("Consultant logout error:", err);
-  } finally {
-    setIsAuthLoading(false);
-  }
-};
-
-  // ✅ Initialize Firebase notifications
-const initializeNotifications = async () => {
-  try {
-    console.log('[Expert] 🔔 Initializing notifications...');
-    await notificationService.initialize();
-  } catch (error) {
-    console.error('[Expert] ❌ Error initializing notifications:', error);
-  }
-};
+  const logout = useCallback(async () => {
+    try {
+      setIsAuthLoading(true);
+      await notificationService.removeTokenFromBackend();
+      notificationService.removeListeners();
+      await removeToken();
+      setUser(null);
+    } catch (err) {
+      console.error("Consultant logout error:", err);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }, []);
 
   const value: AuthContextType = {
     user,

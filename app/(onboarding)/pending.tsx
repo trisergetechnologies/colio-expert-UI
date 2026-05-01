@@ -1,7 +1,7 @@
 import GradientBackground from "@/components/Gradientbackground";
 import { useAuth } from "@/context/AuthContext";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
 export default function PendingApprovalScreen() {
@@ -9,17 +9,15 @@ export default function PendingApprovalScreen() {
   const { refreshUser, user, logout } = useAuth();
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (user?.consultantProfile?.applicationStatus === "approved") {
+  const status = user?.consultantProfile?.applicationStatus;
+
+  // Navigate away only when status actually becomes "approved".
+  // No useEffect dependency on the full `user` object — only the derived string.
+  React.useEffect(() => {
+    if (status === "approved") {
       router.replace("/(tabs)/home");
     }
-  }, [user?.consultantProfile?.applicationStatus, router]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refreshUser();
-    }, [refreshUser])
-  );
+  }, [status, router]);
 
   const checkStatus = async () => {
     setBusy(true);

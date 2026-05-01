@@ -10,6 +10,7 @@ import { ActivityIndicator } from "react-native";
 export default function TabsLayout() {
   const router = useRouter();
   const { isAuthenticated, isAuthLoading, user } = useAuth();
+  const applicationStatus = user?.consultantProfile?.applicationStatus;
 
   useEffect(() => {
     if (!isAuthLoading) {
@@ -17,14 +18,24 @@ export default function TabsLayout() {
         router.replace("/(auth)/auth");
         return;
       }
-      const st = user.consultantProfile?.applicationStatus ?? "approved";
-      if (st !== "approved") {
-        if (st === "pending_approval") router.replace("/(onboarding)/pending");
-        else if (st === "rejected") router.replace("/(onboarding)/rejected");
-        else router.replace("/(onboarding)/personal-info");
+      if (applicationStatus === "approved") return;
+      if (applicationStatus === "pending_approval") {
+        router.replace("/(onboarding)/pending");
+        return;
+      }
+      if (applicationStatus === "rejected") {
+        router.replace("/(onboarding)/rejected");
+        return;
+      }
+      if (applicationStatus === "pending_profile") {
+        router.replace("/(onboarding)/personal-info");
+        return;
+      }
+      if (!applicationStatus) {
+        router.replace("/(onboarding)/personal-info");
       }
     }
-  }, [isAuthLoading, isAuthenticated, user, router]);
+  }, [isAuthLoading, isAuthenticated, !!user, applicationStatus, router]);
 
   // ✅ Loading state
   if (isAuthLoading) {

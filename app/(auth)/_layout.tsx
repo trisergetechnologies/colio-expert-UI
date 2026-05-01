@@ -12,20 +12,22 @@ export default function PrivateLayout() {
   const router = useRouter();
   const { isAuthenticated, isAuthLoading, user } = useAuth();
 
+  const applicationStatus = user?.consultantProfile?.applicationStatus;
+
   useEffect(() => {
     if (!isAuthLoading && isAuthenticated && user) {
-      const st = user.consultantProfile?.applicationStatus ?? "approved";
-      if (st === "approved") {
+      if (!applicationStatus) return;
+      if (applicationStatus === "approved") {
         router.replace("/(tabs)/home");
-      } else if (st === "pending_approval") {
+      } else if (applicationStatus === "pending_approval") {
         router.replace("/(onboarding)/pending");
-      } else if (st === "rejected") {
+      } else if (applicationStatus === "rejected") {
         router.replace("/(onboarding)/rejected");
       } else {
         router.replace("/(onboarding)/personal-info");
       }
     }
-  }, [isAuthLoading, isAuthenticated, user, router]);
+  }, [isAuthLoading, isAuthenticated, !!user, applicationStatus, router]);
 
   // 🔄 Show loader while checking auth
   if (isAuthLoading) {
